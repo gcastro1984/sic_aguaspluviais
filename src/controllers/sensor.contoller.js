@@ -1,9 +1,8 @@
 
 
+import { sensores } from '../models/sensores.model.js';
+
 export const getAllSensors = (req, res) => {
-
-
-
     res.status(200).json(sensores);
 }
 
