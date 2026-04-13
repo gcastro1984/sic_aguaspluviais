@@ -7,9 +7,9 @@ export const getAllSensors = (req, res) => {
 }
 
 
-export const createNewSensor = (req, res) => { 
+export const createNewSensor = (req, res) => {
 
-    const { tipo, localizacao,status, infraUrb, dataProxmanutencao } = req.body;
+    const { tipo, localizacao, status, infraUrb, dataProxmanutencao } = req.body;
 
 
 
@@ -17,7 +17,7 @@ export const createNewSensor = (req, res) => {
         id: sensores.length + 1,
         tipo,
         localizacao,
-        status: status? status : 'offline',
+        status: status ? status : 'offline',
         infraUrb,
         dataProxmanutencao
     };
@@ -25,17 +25,17 @@ export const createNewSensor = (req, res) => {
     sensores.push(newSensor);
 
     res.status(201).json(newSensor);
-}   
+}
 
 
 
 export const updateStatusSensor = (req, res) => {
-    const {id} = req.params.id;
-    const {status} = req.body;
+    const { id } = req.params.id;
+    const { status } = req.body;
 
     // Validar se o status é válido
-    const validStatus = ['online', 'offline', 'manutencao'];    
-    if(!validStatus.includes(status)){
+    const validStatus = ['online', 'offline', 'manutencao'];
+    if (!validStatus.includes(status)) {
         const error = new Error('Status inválido. Status deve ser "online", "offline" ou "manutencao".');
         error.status = 400;
         throw error;
@@ -44,10 +44,10 @@ export const updateStatusSensor = (req, res) => {
     //Validar se o sensor existe
     const sensor = sensores.find(s => s.id === parseInt(id));
 
-    if(!sensor){
+    if (!sensor) {
         const error = new Error('Sensor não encontrado');
-       error.status = 404;
-       throw error;
+        error.status = 404;
+        throw error;
     }
 
     sensor.status = status;
