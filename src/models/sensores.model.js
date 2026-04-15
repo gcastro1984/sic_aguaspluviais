@@ -162,3 +162,5 @@ export let sensores = [
     "dataProxmanutencao": "2025-10-07"
   }
 ];
+
+export default sensores;
