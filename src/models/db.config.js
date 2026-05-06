@@ -27,10 +27,16 @@ try {
 }
 
 //add models here
-
+import SensorModel from './sensores.model.js';
 import AlertModel from './alerta.model.js';
+import LeituraSensorModel from './leitura_sensor.model.js';
+import NivelAlertaModel from './nivel_alerta.model.js';
 
 const Alerta = AlertModel(sequelize, DataTypes);
+const LeituraSensor = LeituraSensorModel(sequelize, DataTypes);
+const NivelAlerta = NivelAlertaModel(sequelize, DataTypes);
+const Sensor = SensorModel(sequelize, DataTypes);
+
 
 // Sync the models with the database
 try {
@@ -43,4 +49,4 @@ try {
 
 
 // export the models for use in other modules
-export { Alerta };
+export { Alerta, LeituraSensor, NivelAlerta, Sensor };

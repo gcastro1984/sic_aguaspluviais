@@ -1,6 +1,6 @@
 
 
-import { sensores } from '../models/sensores.model.js';
+import { sensores } from '../models/sensores.model_mock.js';
 
 export const getAllSensors = (req, res) => {
     res.status(200).json(sensores);
