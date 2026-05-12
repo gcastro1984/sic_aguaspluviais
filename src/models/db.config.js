@@ -31,11 +31,78 @@ import SensorModel from './sensores.model.js';
 import AlertModel from './alerta.model.js';
 import LeituraSensorModel from './leitura_sensor.model.js';
 import NivelAlertaModel from './nivel_alerta.model.js';
+import area_riscoModel from "./area_risco.model.js";
+import InfraestruturaUrbanaModel from "./infraestrutura_urbana.model.js";
+import PlanoAcaoModel from "./plano_acao.model.js";
 
-const Alerta = AlertModel(sequelize, DataTypes);
+const Sensor = SensorModel(sequelize, DataTypes);
+const InfraestruturaUrbana = InfraestruturaUrbanaModel(sequelize, DataTypes);
 const LeituraSensor = LeituraSensorModel(sequelize, DataTypes);
 const NivelAlerta = NivelAlertaModel(sequelize, DataTypes);
-const Sensor = SensorModel(sequelize, DataTypes);
+const AreaRisco = area_riscoModel(sequelize, DataTypes);
+const Alerta = AlertModel(sequelize, DataTypes);
+const PlanoAcao = PlanoAcaoModel(sequelize, DataTypes);
+
+
+
+
+
+// define associations between models here if needed
+
+
+// SENSOR → LEITURAS
+Sensor.hasMany(LeituraSensor, {
+    foreignKey: 'idsensor',
+    onDelete: 'CASCADE'
+});
+
+LeituraSensor.belongsTo(Sensor, {
+    foreignKey: 'idsensor'
+});
+
+
+// LEITURA → ALERTA (1:1)
+LeituraSensor.hasOne(Alerta, {
+    foreignKey: 'idleitura_sensor',
+    onDelete: 'CASCADE'
+});
+
+Alerta.belongsTo(LeituraSensor, {
+    foreignKey: 'idleitura_sensor'
+});
+
+
+
+// NÍVEL ALERTA → ALERTAS
+NivelAlerta.hasMany(Alerta, {
+    foreignKey: 'idnivel_alerta'
+});
+
+Alerta.belongsTo(NivelAlerta, {
+    foreignKey: 'idnivel_alerta'
+});
+
+InfraestruturaUrbana.hasMany(Alerta, {
+    foreignKey: 'idinfraestrutura_urbana'
+}); 
+Alerta.belongsTo(InfraestruturaUrbana, {
+    foreignKey: 'idinfraestrutura_urbana'
+});
+
+
+Alerta.belongsToMany(PlanoAcao, {
+    through: 'alerta_plano_acao',
+    foreignKey: 'idalerta',
+    otherKey: 'idplano_acao'
+});
+
+PlanoAcao.belongsToMany(Alerta, {
+    through: 'alerta_plano_acao',
+    foreignKey: 'idplano_acao',
+    otherKey: 'idalerta'
+});
+
+
 
 
 // Sync the models with the database
@@ -48,5 +115,8 @@ try {
 }   
 
 
+
+
+
 // export the models for use in other modules
-export { Alerta, LeituraSensor, NivelAlerta, Sensor };
+export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao };

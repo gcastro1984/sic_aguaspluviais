@@ -1,0 +1,5 @@
+idnivel_alerta,nome,cor,ordem_gravidade,descricao
+1,Verde,Verde,1,Monitorização preventiva.
+2,Amarelo,Amarelo,2,Vigilância ativa.
+3,Laranja,Laranja,3,Proteção e mobilização.
+4,Vermelho,Vermelho,4,Emergência e salvaguarda.

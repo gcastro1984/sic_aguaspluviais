@@ -1,24 +1,21 @@
-export default (sequelize, DataTypes) => sequelize.define('nivel_alerta', {
+export default (sequelize, DataTypes) => sequelize.define('area_risco', { 
 
-    idnivel_alerta: {
+    idarea_risco: {
         type: DataTypes.INTEGER,
-        autoIncrement: true,
         primaryKey: true,
+        autoIncrement: true,
         allowNull: false
     },
-
     nome: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING(100),
         allowNull: false,
         unique: true
     },
-
-    cor: {
-        type: DataTypes.STRING(15),
+    localizacao: {
+        type: DataTypes.STRING(255),
         allowNull: false
     },
-
-    ordem_gravidade: {
+    vulnerabilidade_base: {
         type: DataTypes.INTEGER,
         allowNull: false,
         validate: {
@@ -26,7 +23,6 @@ export default (sequelize, DataTypes) => sequelize.define('nivel_alerta', {
             max: 5
         }
     },
-
     descricao: {
         type: DataTypes.TEXT,
         allowNull: true
@@ -34,7 +30,6 @@ export default (sequelize, DataTypes) => sequelize.define('nivel_alerta', {
 
 },
  {
-    tableName: 'nivel_alerta',
+    tableName: 'area_risco',
     timestamps: false
     },);
-

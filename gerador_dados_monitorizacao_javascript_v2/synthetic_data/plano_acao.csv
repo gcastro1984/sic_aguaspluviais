@@ -1,0 +1,9 @@
+idplano_acao,descricao,tipo_destinatario
+1,Verificar obstrução de sarjetas e coletores em zonas baixas.,gestao_infraestrutura
+2,Analisar modelos preditivos para as próximas 24 horas.,operador_municipal
+3,Colocar equipas de piquete em prontidão.,gestao_infraestrutura
+4,Verificar equipamentos de bombagem e drenagem.,bombeiros
+5,Preparar corte preventivo de vias com risco de inundação.,policia_municipal
+6,Pré-posicionar meios de socorro em locais estratégicos.,protecao_civil
+7,Ativar plano municipal de emergência.,protecao_civil
+8,Executar evacuação e apoio à população nas zonas críticas.,populacao_civil

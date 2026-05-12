@@ -1,0 +1,13 @@
+idinfraestrutura_urbana,nome,tipo,localizacao,idarea_risco
+1,Coletor Principal - Zona Ribeirinha,coletor_pluvial,Vila do Conde - Marginal e Rio Ave,1
+2,Sarjeta Crítica - Zona Ribeirinha,sarjeta,Vila do Conde - Marginal e Rio Ave,1
+3,Ponto de Drenagem - Zona Ribeirinha,drenagem,Vila do Conde - Marginal e Rio Ave,1
+4,Coletor Principal - Passagem Inferior,coletor_pluvial,Vila do Conde - Acesso rodoviário inferior,2
+5,Sarjeta Crítica - Passagem Inferior,sarjeta,Vila do Conde - Acesso rodoviário inferior,2
+6,Ponto de Drenagem - Passagem Inferior,drenagem,Vila do Conde - Acesso rodoviário inferior,2
+7,Coletor Principal - Centro Urbano,coletor_pluvial,Vila do Conde - Centro,3
+8,Sarjeta Crítica - Centro Urbano,sarjeta,Vila do Conde - Centro,3
+9,Ponto de Drenagem - Centro Urbano,drenagem,Vila do Conde - Centro,3
+10,Coletor Principal - Zona Industrial,coletor_pluvial,Vila do Conde - Área industrial,4
+11,Sarjeta Crítica - Zona Industrial,sarjeta,Vila do Conde - Área industrial,4
+12,Ponto de Drenagem - Zona Industrial,drenagem,Vila do Conde - Área industrial,4

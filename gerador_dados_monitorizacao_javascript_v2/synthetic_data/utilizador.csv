@@ -1,0 +1,4 @@
+idutilizador,tipo,email,password_hash
+1,administrador,admin.monitorizacao@example.pt,hash_demo_admin_please_replace
+2,operador_municipal,operador.municipal@example.pt,hash_demo_operator_please_replace
+3,analista_risco,analista.risco@example.pt,hash_demo_analyst_please_replace

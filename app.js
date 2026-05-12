@@ -5,6 +5,9 @@ import 'dotenv/config';
 import utilizadorRoutes from './src/routes/utilizador.routes.js';
 import sensorRoutes from './src/routes/sensor.routes.js';
 import alertasRoutes from './src/routes/alerta.routes.js';
+import leiturasRoutes from './src/routes/leitura.routes.js';
+import areasRiscoRoutes from './src/routes/arearisco.routes.js';
+import infraestruturaRoutes from './src/routes/infraestrutura.routes.js';
 
 
 // create Express application
@@ -23,6 +26,9 @@ app.use(express.json()); //enable parsing JSON body data
 app.post('/login', utilizadorRoutes);
 app.use('/sensores', sensorRoutes);
 app.use('/alertas', alertasRoutes);
+app.use('/leituras',leiturasRoutes)
+app.use('/areasrisco', areasRiscoRoutes);
+app.use('/infraestruturas', infraestruturaRoutes);
 
 // server creation and listening for any incoming requests
 app.listen(port, host, (error) => {

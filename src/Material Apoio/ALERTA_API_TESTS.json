@@ -1,0 +1,119 @@
+{
+    "cliente": "Postman",
+    "info": {
+        "name": "Alerta API - Collection de Testes",
+        "description": "Testes completos para a API de Alertas",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "baseUrl": "http://localhost:3001",
+    "requests": [
+        {
+            "name": "1. Criar Alerta",
+            "method": "POST",
+            "url": "{{baseUrl}}/alertas",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "mode": "raw",
+                "raw": "{\n  \"idnivel_alerta\": 1,\n  \"idarea_risco\": 1,\n  \"idinfraestrutura_urbana\": 1,\n  \"descricao\": \"Alerta de chuva intensa com risco de inundação\",\n  \"score_risco\": 85.50,\n  \"estado\": \"ativo\"\n}"
+            }
+        },
+        {
+            "name": "2. Listar Todos os Alertas",
+            "method": "GET",
+            "url": "{{baseUrl}}/alertas",
+            "headers": {}
+        },
+        {
+            "name": "3. Obter Alerta por ID",
+            "method": "GET",
+            "url": "{{baseUrl}}/alertas/1",
+            "headers": {}
+        },
+        {
+            "name": "4. Filtrar Alertas por Estado - Ativo",
+            "method": "GET",
+            "url": "{{baseUrl}}/alertas/estado/ativo",
+            "headers": {}
+        },
+        {
+            "name": "5. Filtrar Alertas por Estado - Resolvido",
+            "method": "GET",
+            "url": "{{baseUrl}}/alertas/estado/resolvido",
+            "headers": {}
+        },
+        {
+            "name": "6. Atualizar Alerta",
+            "method": "PUT",
+            "url": "{{baseUrl}}/alertas/1",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "mode": "raw",
+                "raw": "{\n  \"estado\": \"resolvido\",\n  \"score_risco\": 45.00\n}"
+            }
+        },
+        {
+            "name": "7. Atualizar Apenas o Estado",
+            "method": "PUT",
+            "url": "{{baseUrl}}/alertas/1",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "mode": "raw",
+                "raw": "{\n  \"estado\": \"cancelado\"\n}"
+            }
+        },
+        {
+            "name": "8. Deletar Alerta",
+            "method": "DELETE",
+            "url": "{{baseUrl}}/alertas/1",
+            "headers": {}
+        },
+        {
+            "name": "9. Criar Alerta com Score Crítico",
+            "method": "POST",
+            "url": "{{baseUrl}}/alertas",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "mode": "raw",
+                "raw": "{\n  \"idnivel_alerta\": 1,\n  \"idarea_risco\": 2,\n  \"idinfraestrutura_urbana\": 3,\n  \"descricao\": \"Alerta crítico: Risco de inundação severa\",\n  \"score_risco\": 95.75,\n  \"data_alerta\": \"2026-05-12T14:30:00\"\n}"
+            }
+        },
+        {
+            "name": "10. Teste - Campo Obrigatório Faltando",
+            "method": "POST",
+            "url": "{{baseUrl}}/alertas",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "mode": "raw",
+                "raw": "{\n  \"idnivel_alerta\": 1,\n  \"idarea_risco\": 1,\n  \"descricao\": \"Teste - falta idinfraestrutura_urbana\",\n  \"score_risco\": 50\n}"
+            }
+        },
+        {
+            "name": "11. Teste - Score_risco Inválido",
+            "method": "POST",
+            "url": "{{baseUrl}}/alertas",
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": {
+                "mode": "raw",
+                "raw": "{\n  \"idnivel_alerta\": 1,\n  \"idarea_risco\": 1,\n  \"idinfraestrutura_urbana\": 1,\n  \"descricao\": \"Teste - score inválido\",\n  \"score_risco\": 150\n}"
+            }
+        },
+        {
+            "name": "12. Obter Alerta Inexistente",
+            "method": "GET",
+            "url": "{{baseUrl}}/alertas/9999",
+            "headers": {}
+        }
+    ]
+}
