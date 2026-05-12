@@ -23,15 +23,6 @@ export default (sequelize, DataTypes) => sequelize.define('alerta', {
         }
     },
     
-idleitura_sensor: {
-  type: DataTypes.INTEGER,
-  allowNull: true, // ✅ importante
-  references: {
-    model: 'leitura_sensor',
-    key: 'idleitura_sensor'
-  }
-}
-    ,
     idinfraestrutura_urbana: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -58,7 +49,7 @@ idleitura_sensor: {
         }
     },
     estado: {
-        type: DataTypes.ENUM('ativo', 'resolvido', 'cancelado'),
+        type: DataTypes.ENUM('ativo', 'registado','resolvido', 'cancelado','pendente', 'em_execucao', 'concluido'),
         allowNull: false,
         defaultValue: 'ativo'
     }

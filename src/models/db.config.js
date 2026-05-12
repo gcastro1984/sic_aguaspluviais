@@ -34,15 +34,20 @@ import NivelAlertaModel from './nivel_alerta.model.js';
 import area_riscoModel from "./area_risco.model.js";
 import InfraestruturaUrbanaModel from "./infraestrutura_urbana.model.js";
 import PlanoAcaoModel from "./plano_acao.model.js";
+import UtilizadorModel from "./utilizador.model.js";
+import AlertaPlanoAcaoModel from "./alerta_plano_acao.model.js";
+import criterio_alertaModel from "./criterio_alerta.model.js";
 
 const Sensor = SensorModel(sequelize, DataTypes);
 const InfraestruturaUrbana = InfraestruturaUrbanaModel(sequelize, DataTypes);
 const LeituraSensor = LeituraSensorModel(sequelize, DataTypes);
 const NivelAlerta = NivelAlertaModel(sequelize, DataTypes);
 const AreaRisco = area_riscoModel(sequelize, DataTypes);
+const CriterioAlerta = criterio_alertaModel(sequelize, DataTypes);
 const Alerta = AlertModel(sequelize, DataTypes);
 const PlanoAcao = PlanoAcaoModel(sequelize, DataTypes);
-
+const AlertaPlanoAcao = AlertaPlanoAcaoModel(sequelize, DataTypes);
+const Utilizador = UtilizadorModel(sequelize, DataTypes);
 
 
 
@@ -103,6 +108,32 @@ PlanoAcao.belongsToMany(Alerta, {
 });
 
 
+AlertaPlanoAcao.belongsTo(Alerta, {
+    foreignKey: 'idalerta'
+});
+
+AlertaPlanoAcao.belongsTo(PlanoAcao, {
+    foreignKey: 'idplano_acao'
+});
+
+Alerta.hasMany(AlertaPlanoAcao, {
+    foreignKey: 'idalerta'
+});
+
+PlanoAcao.hasMany(AlertaPlanoAcao, {
+    foreignKey: 'idplano_acao'
+});
+
+NivelAlerta.hasMany(CriterioAlerta, {
+  foreignKey: 'idnivel_alerta'
+});
+
+CriterioAlerta.belongsTo(NivelAlerta, {
+  foreignKey: 'idnivel_alerta'
+});
+
+
+
 
 
 // Sync the models with the database
@@ -119,4 +150,4 @@ try {
 
 
 // export the models for use in other modules
-export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao };
+export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, Utilizador };

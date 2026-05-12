@@ -4,21 +4,23 @@ import { LeituraSensor } from '../models/db.config.js';
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
 
 
-import { verificarAlertas } from '../utils/alerta.utils.js';
+//import { verificarAlertas } from '../utils/alerta.utils.js';
 
 
 export const criarLeitura = async (req, res, next) => {
 
     try {
+        
+    console.log(" RECEBIDO:", req.body);
 
         // sequelize valida automaticamente
         const newLeitura = await LeituraSensor.create(req.body);
         
        
 
-        // 🚨 verificar/classificar alertas
-        const resultado =
-            await verificarAlertas(newLeitura);
+        // verificar/classificar alertas
+        //const resultado =
+            //await verificarAlertas(newLeitura);
 
         // resposta HATEOAS
         const leituraResponse = {
@@ -26,13 +28,20 @@ export const criarLeitura = async (req, res, next) => {
             ...newLeitura.toJSON(),
 
             // classificação calculada
-            classificacao: resultado.classificacao,
+            //classificacao: resultado.classificacao,
 
             // alerta criado (ou null)
-            alerta: resultado.alerta,
+            //alerta: resultado.alerta,
 
             // indica se alerta já existia
-            repetido: resultado.repetido || false,
+            //repetido: resultado.repetido || false,
+
+            
+classificacao: null,
+alerta: null,
+repetido: false,
+
+
 
             links: {
                 allLeituras: {
@@ -41,22 +50,22 @@ export const criarLeitura = async (req, res, next) => {
                 },
 
                 self: {
-                    href: `/leituras/${newLeitura.id}`,
+                    href: `/leituras/${newLeitura.idleitura_sensor}`,
                     method: "GET"
                 },
 
                 update: {
-                    href: `/leituras/${newLeitura.id}`,
+                    href: `/leituras/${newLeitura.idleitura_sensor}`,
                     method: "PUT"
                 },
 
                 delete: {
-                    href: `/leituras/${newLeitura.id}`,
+                    href: `/leituras/${newLeitura.idleitura_sensor}`,
                     method: "DELETE"
                 }
             }
         };
- 
+        console.log("✅ CHEGOU AO FIM DO CONTROLLER")
         res.status(201).json(leituraResponse);
 
     } catch (error) {

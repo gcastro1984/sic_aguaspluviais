@@ -833,5 +833,5 @@ if (require.main === module) {
   }
 }
 
-//module.exports = { classifyAlert, generateData };
-export { classifyAlert, generateData };
+module.exports = { classifyAlert, generateData };
+
