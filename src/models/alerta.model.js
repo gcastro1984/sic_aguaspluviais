@@ -22,7 +22,7 @@ export default (sequelize, DataTypes) => sequelize.define('alerta', {
             key: 'idarea_risco'
         }
     },
-    
+
     idinfraestrutura_urbana: {
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -31,6 +31,16 @@ export default (sequelize, DataTypes) => sequelize.define('alerta', {
             key: 'idinfraestrutura_urbana'
         }
     },
+
+    idleitura_sensor: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'leitura_sensor',
+            key: 'idleitura_sensor'
+        }
+    },
+
     data_alerta: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -49,13 +59,13 @@ export default (sequelize, DataTypes) => sequelize.define('alerta', {
         }
     },
     estado: {
-        type: DataTypes.ENUM('ativo', 'registado','resolvido', 'cancelado','pendente', 'em_execucao', 'concluido'),
+        type: DataTypes.ENUM('ativo', 'registado', 'resolvido', 'cancelado', 'pendente', 'em_execucao', 'concluido'),
         allowNull: false,
         defaultValue: 'ativo'
     }
 
 },
- {
-    tableName: 'alerta',
-    timestamps: false
+    {
+        tableName: 'alerta',
+        timestamps: false
     },);

@@ -1,4 +1,4 @@
-import { Alerta } from '../models/db.config.js';
+import { Alerta, AreaRisco, NivelAlerta, PrevisaoMeteorologica, CriterioAlerta, InfraestruturaUrbana } from '../models/db.config.js';
 
 // import error utils
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
@@ -88,13 +88,46 @@ export const obterAlertaPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
 
-        const alerta = await Alerta.findByPk(id);
+        const alerta = await Alerta.findByPk(id, {
+            include: [
+                {
+                    model: AreaRisco,
+                    include: [
+                        {
+                            model: PrevisaoMeteorologica,
+                            attributes: [
+                                'idprevisao',
+                                'fonte',
+                                'data_emissao',
+                                'data_inicio_previsao',
+                                'data_fim_previsao',
+                                'horizonte_horas',
+                                'precipitacao_prevista_mm',
+                                'confianca'
+                            ]
+                        }
+                    ]
+                },
+                {
+                    model: NivelAlerta,
+                    include: [
+                        {
+                            model: CriterioAlerta,
+                            where: { ativo: true },
+                            required: false
+                        }
+                    ]
+                },
+                {
+                    model: InfraestruturaUrbana
+                }
+            ]
+        });
 
         if (!alerta) {
             return next(notFoundError(`Alerta com ID ${id} não encontrado`));
         }
 
-        // add hateoas links to the response
         const alertaResponse = {
             ...alerta.toJSON(),
             links: {

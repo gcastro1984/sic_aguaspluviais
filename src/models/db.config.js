@@ -21,9 +21,9 @@ try {
     await sequelize.authenticate();
     console.log('Connection has been established successfully.');
 } catch (error) {
-        console.error("Unable to connect to the database:", error);
-        process.exit(1);
-    
+    console.error("Unable to connect to the database:", error);
+    process.exit(1);
+
 }
 
 //add models here
@@ -37,6 +37,7 @@ import PlanoAcaoModel from "./plano_acao.model.js";
 import UtilizadorModel from "./utilizador.model.js";
 import AlertaPlanoAcaoModel from "./alerta_plano_acao.model.js";
 import criterio_alertaModel from "./criterio_alerta.model.js";
+import PrevisaoMeteorologicaModel from "./previsao_meteorologica.model.js";
 
 const Sensor = SensorModel(sequelize, DataTypes);
 const InfraestruturaUrbana = InfraestruturaUrbanaModel(sequelize, DataTypes);
@@ -48,6 +49,7 @@ const Alerta = AlertModel(sequelize, DataTypes);
 const PlanoAcao = PlanoAcaoModel(sequelize, DataTypes);
 const AlertaPlanoAcao = AlertaPlanoAcaoModel(sequelize, DataTypes);
 const Utilizador = UtilizadorModel(sequelize, DataTypes);
+const PrevisaoMeteorologica = PrevisaoMeteorologicaModel(sequelize, DataTypes);
 
 
 
@@ -87,24 +89,19 @@ Alerta.belongsTo(NivelAlerta, {
     foreignKey: 'idnivel_alerta'
 });
 
+AreaRisco.hasMany(Alerta, {
+    foreignKey: 'idarea_risco'
+});
+
+Alerta.belongsTo(AreaRisco, {
+    foreignKey: 'idarea_risco'
+});
+
 InfraestruturaUrbana.hasMany(Alerta, {
     foreignKey: 'idinfraestrutura_urbana'
-}); 
+});
 Alerta.belongsTo(InfraestruturaUrbana, {
     foreignKey: 'idinfraestrutura_urbana'
-});
-
-
-Alerta.belongsToMany(PlanoAcao, {
-    through: 'alerta_plano_acao',
-    foreignKey: 'idalerta',
-    otherKey: 'idplano_acao'
-});
-
-PlanoAcao.belongsToMany(Alerta, {
-    through: 'alerta_plano_acao',
-    foreignKey: 'idplano_acao',
-    otherKey: 'idalerta'
 });
 
 
@@ -125,16 +122,24 @@ PlanoAcao.hasMany(AlertaPlanoAcao, {
 });
 
 NivelAlerta.hasMany(CriterioAlerta, {
-  foreignKey: 'idnivel_alerta'
+    foreignKey: 'idnivel_alerta'
 });
 
 CriterioAlerta.belongsTo(NivelAlerta, {
-  foreignKey: 'idnivel_alerta'
+    foreignKey: 'idnivel_alerta'
 });
 
 
 
+// AREA RISCO → PREVISAO METEOROLOGICA
+AreaRisco.hasMany(PrevisaoMeteorologica, {
+    foreignKey: 'idarea_risco',
+    onDelete: 'CASCADE'
+});
 
+PrevisaoMeteorologica.belongsTo(AreaRisco, {
+    foreignKey: 'idarea_risco'
+});
 
 // Sync the models with the database
 try {
@@ -143,11 +148,11 @@ try {
 } catch (error) {
     console.error("Error synchronizing models:", error);
     process.exit(1);
-}   
+}
 
 
 
 
 
 // export the models for use in other modules
-export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, Utilizador };
+export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, Utilizador, PrevisaoMeteorologica, CriterioAlerta, AlertaPlanoAcao };

@@ -11,7 +11,6 @@ export const criarLeitura = async (req, res, next) => {
 
     try {
         
-    console.log(" RECEBIDO:", req.body);
 
         // sequelize valida automaticamente
         const newLeitura = await LeituraSensor.create(req.body);
@@ -65,7 +64,6 @@ repetido: false,
                 }
             }
         };
-        console.log("✅ CHEGOU AO FIM DO CONTROLLER")
         res.status(201).json(leituraResponse);
 
     } catch (error) {

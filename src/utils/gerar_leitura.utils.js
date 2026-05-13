@@ -6,7 +6,6 @@ const data = generateData({
   seed: 42,
   start: new Date()
 });
-
 const leituras = data.leitura_sensor;
 console.log(`Geradas ${leituras.length} leituras de sensores.`);
 
