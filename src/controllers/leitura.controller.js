@@ -1,10 +1,10 @@
-import { LeituraSensor } from '../models/db.config.js'; 
+import { LeituraSensor, Sensor, Alerta,InfraestruturaUrbana, AreaRisco } from '../models/db.config.js'; 
 
 // import error utils
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
 
 
-//import { verificarAlertas } from '../utils/alerta.utils.js';
+import { verificarAlertas } from '../utils/alerta.utils.js';
 
 
 export const criarLeitura = async (req, res, next) => {
@@ -14,31 +14,52 @@ export const criarLeitura = async (req, res, next) => {
 
         // sequelize valida automaticamente
         const newLeitura = await LeituraSensor.create(req.body);
+        console.log("Leitura criada:", newLeitura.toJSON());
         
+       // Verigficar se sensor existe
+       
+    const sensor = await Sensor.findByPk(newLeitura.idsensor);
+
+
+
+
+
+        if (!sensor) {
+            return next(notFoundError("Sensor não encontrado"));
+        }
+        if (sensor.status !== 'online') {
+            return next(conflictError("Sensor está offline ou em manutenção"));
+        }
        
 
+        
         // verificar/classificar alertas
-        //const resultado =
-            //await verificarAlertas(newLeitura);
+        const resultado = await verificarAlertas(newLeitura);
+
+        
+      
+
+        let alertaCriado = null;
+        if (resultado) {
+            alertaCriado = await Alerta.create({
+                idnivel_alerta: resultado.nivel,
+                idarea_risco: resultado.idarea_risco,
+                idinfraestrutura_urbana: resultado.idinfraestrutura_urbana,
+                idleitura_sensor: newLeitura.idleitura_sensor,
+                descricao: resultado.mensagem,
+                score_risco: resultado.score_risco || 0,
+                estado: "ativo"
+            });
+        }
 
         // resposta HATEOAS
         const leituraResponse = {
 
             ...newLeitura.toJSON(),
 
-            // classificação calculada
-            //classificacao: resultado.classificacao,
-
-            // alerta criado (ou null)
-            //alerta: resultado.alerta,
-
-            // indica se alerta já existia
-            //repetido: resultado.repetido || false,
-
-            
-classificacao: null,
-alerta: null,
-repetido: false,
+            classificacao: resultado ? resultado.nivel : 1,
+            alerta: alertaCriado ? alertaCriado.toJSON() : null,
+            repetido: false,
 
 
 
@@ -79,7 +100,7 @@ repetido: false,
 
             // erro genérico
             next(
-                genericError("Error creating leitura")
+                genericError(error.message)
             );
         }
     }

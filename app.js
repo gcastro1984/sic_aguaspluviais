@@ -25,7 +25,7 @@ app.use(express.json()); //enable parsing JSON body data
 
 // sets the server response to a GET request on URI /
 
-app.post('/login', utilizadorRoutes);
+app.use('/login', utilizadorRoutes);
 app.use('/sensores', sensorRoutes);
 app.use('/alertas', alertasRoutes);
 app.use('/leituras',leiturasRoutes)

@@ -1,4 +1,5 @@
-import { Alerta, AreaRisco, NivelAlerta, PrevisaoMeteorologica, CriterioAlerta, InfraestruturaUrbana } from '../models/db.config.js';
+import { Alerta, AreaRisco, NivelAlerta, PrevisaoMeteorologica, CriterioAlerta, InfraestruturaUrbana, LeituraSensor } from '../models/db.config.js';
+import { verificarAlertas } from '../utils/alerta.utils.js';
 
 // import error utils
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
@@ -6,49 +7,59 @@ import { conflictError, validationError, sequelizeValidationError, missingFields
 // controller to create a new alert
 export const criarAlerta = async (req, res, next) => {
     try {
-        const { idnivel_alerta, idarea_risco, idinfraestrutura_urbana, data_alerta, descricao, score_risco, estado } = req.body;
+        const { idleitura_sensor } = req.body;
 
-        // Validate required fields
-        if (!idnivel_alerta || !idarea_risco || !idinfraestrutura_urbana || !descricao || score_risco === undefined) {
-            return next(missingFieldsValidationError(['idnivel_alerta', 'idarea_risco', 'idinfraestrutura_urbana', 'descricao', 'score_risco']));
+        if (!idleitura_sensor) {
+            return next(missingFieldsValidationError(['idleitura_sensor']));
         }
 
-        // Validate score_risco range
-        if (score_risco < 0 || score_risco > 100) {
-            return next(validationError('score_risco deve estar entre 0 e 100'));
+        const leitura = await LeituraSensor.findByPk(idleitura_sensor);
+
+        if (!leitura) {
+            return next(notFoundError("Leitura não encontrada"));
         }
 
-        //sequelize will automatically validate the input based on the model definition and throw an error if validation fails
+        // lógica de negócio
+        const resultado = await verificarAlertas(leitura);
+
+        
+// 🔍 verificar se já existe alerta ativo
+const existente = await Alerta.findOne({
+    where: {
+        idarea_risco: resultado.idarea_risco,
+        estado: "ativo"
+    }
+});
+
+if (existente) {
+    console.log("⚠️ Já existe alerta ativo para esta área");
+    return res.status(200).json({
+        message: "Já existe alerta ativo",
+        alerta: existente
+    });
+}
+
+
+        if (!resultado) {
+            return res.status(200).json({
+                message: "Sem alerta (nível verde)"
+            });
+        }
+
         const newAlerta = await Alerta.create({
-            idnivel_alerta,
-            idarea_risco,
-            idinfraestrutura_urbana,
-            data_alerta: data_alerta || new Date(),
-            descricao,
-            score_risco,
-            estado: estado || 'ativo'
+            idnivel_alerta: resultado.nivel,
+            idarea_risco: resultado.idarea_risco,
+            idinfraestrutura_urbana: resultado.idinfraestrutura_urbana,
+            idleitura_sensor: leitura.idleitura_sensor,
+            descricao: resultado.mensagem,
+            score_risco: resultado.score_risco || 0,
+            estado: "ativo"
         });
 
-        // add hateoas links to the response
-        const alertaResponse = {
-            ...newAlerta.toJSON(),
-            links: {
-                allAlertas: { href: "/alertas", method: "GET" },
-                self: { href: `/alertas/${newAlerta.idalerta}` },
-                update: { href: `/alertas/${newAlerta.idalerta}`, method: "PUT" },
-                delete: { href: `/alertas/${newAlerta.idalerta}`, method: "DELETE" }
-            }
-        };
-        res.status(201).json(alertaResponse);
+        res.status(201).json(newAlerta);
+
     } catch (error) {
-        // detect specific validation errors and send appropriate response
-        if (error.name === "SequelizeValidationError") {
-            next(sequelizeValidationError(error.errors));
-        }
-        else {
-            // send generic error to express error handling middleware
-            next(genericError("Erro ao criar alerta"));
-        }
+        next(genericError("Erro ao criar alerta"));
     }
 };
 

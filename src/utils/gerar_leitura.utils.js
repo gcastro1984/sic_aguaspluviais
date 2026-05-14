@@ -26,6 +26,14 @@ async function enviarLeitura(leitura) {
     },
     body: JSON.stringify(leitura)
   });
+  
+// ✅ verifica se deu erro
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("❌ ERRO BACKEND:", text);
+    return null;
+  }
+
 
   return response.json();
 }

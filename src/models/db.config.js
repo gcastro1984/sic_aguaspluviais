@@ -130,6 +130,25 @@ CriterioAlerta.belongsTo(NivelAlerta, {
 });
 
 
+// SENSOR → INFRAESTRUTURA
+Sensor.belongsTo(InfraestruturaUrbana, {
+    foreignKey: 'idinfraestrutura_urbana'
+});
+
+InfraestruturaUrbana.hasMany(Sensor, {
+    foreignKey: 'idinfraestrutura_urbana'
+});
+
+
+// INFRAESTRUTURA → AREA
+InfraestruturaUrbana.belongsTo(AreaRisco, {
+    foreignKey: 'idarea_risco'
+});
+
+AreaRisco.hasMany(InfraestruturaUrbana, {
+    foreignKey: 'idarea_risco'
+});
+
 
 // AREA RISCO → PREVISAO METEOROLOGICA
 AreaRisco.hasMany(PrevisaoMeteorologica, {
