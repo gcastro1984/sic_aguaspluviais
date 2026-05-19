@@ -1,4 +1,4 @@
-import pkg from '../../gerador_dados_monitorizacao_javascript_v2/generate_monitoring_data_node_v2.cjs';
+import pkg from '../../gerador_dados_monitorizacao_javascript_v2/generate_monitoring_data_node_v2copy.cjs';
 
 const { generateData } = pkg;
 const data = generateData({
@@ -12,7 +12,7 @@ console.log(`Geradas ${leituras.length} leituras de sensores.`);
 
 // remover ID automático
 function limparLeitura(leitura) {
-  const { idleitura_sensor, ...resto } = leitura;
+  const { idleitura_sensor,data_registo, ...resto } = leitura;
   return resto;
 }
 
@@ -27,7 +27,7 @@ async function enviarLeitura(leitura) {
     body: JSON.stringify(leitura)
   });
   
-// ✅ verifica se deu erro
+// verifica se deu erro
   if (!response.ok) {
     const text = await response.text();
     console.error("❌ ERRO BACKEND:", text);

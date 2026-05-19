@@ -11,16 +11,9 @@ export const criarLeitura = async (req, res, next) => {
 
     try {
         
-
-        // sequelize valida automaticamente
-        const newLeitura = await LeituraSensor.create(req.body);
-        console.log("Leitura criada:", newLeitura.toJSON());
         
-       // Verigficar se sensor existe
-       
-    const sensor = await Sensor.findByPk(newLeitura.idsensor);
-
-
+    //  validar sensor ANTES de criar leitura
+        const sensor = await Sensor.findByPk(req.body.idsensor);
 
 
 
@@ -32,25 +25,61 @@ export const criarLeitura = async (req, res, next) => {
         }
        
 
-        
+            // sequelize valida automaticamente
+        const newLeitura = await LeituraSensor.create(req.body);
+
         // verificar/classificar alertas
         const resultado = await verificarAlertas(newLeitura);
+        console.log("Resultado da verificação de alertas:", resultado);
 
         
       
 
-        let alertaCriado = null;
-        if (resultado) {
-            alertaCriado = await Alerta.create({
-                idnivel_alerta: resultado.nivel,
-                idarea_risco: resultado.idarea_risco,
-                idinfraestrutura_urbana: resultado.idinfraestrutura_urbana,
-                idleitura_sensor: newLeitura.idleitura_sensor,
-                descricao: resultado.mensagem,
-                score_risco: resultado.score_risco || 0,
-                estado: "ativo"
-            });
-        }
+
+const existente = await Alerta.findOne({
+    where: {
+        idarea_risco: resultado.idarea_risco,
+        estado: "ativo"
+    }
+
+});
+console.log("Alerta existente encontrado:", existente);
+
+
+let alertaCriado = null;
+
+
+// se ficou verde → resolve alerta existente
+if (resultado.nivel === 1 && existente) {
+    await existente.update({ estado: "resolvido" });
+    return null;
+}
+
+if (existente) {
+    console.log("Alerta já existe → a atualizar");
+
+    await existente.update({
+        idnivel_alerta: resultado.nivel,
+        descricao: resultado.mensagem,
+        score_risco: resultado.score_risco || 0,
+        idleitura_sensor: newLeitura.idleitura_sensor
+    });
+
+    alertaCriado = existente;
+
+} else {
+    alertaCriado = await Alerta.create({
+        idnivel_alerta: resultado.nivel,
+        idarea_risco: resultado.idarea_risco,
+        idinfraestrutura_urbana: resultado.idinfraestrutura_urbana,
+        idleitura_sensor: newLeitura.idleitura_sensor,
+        descricao: resultado.mensagem,
+        score_risco: resultado.score_risco || 0,
+        estado: "ativo"
+    });
+}
+
+
 
         // resposta HATEOAS
         const leituraResponse = {

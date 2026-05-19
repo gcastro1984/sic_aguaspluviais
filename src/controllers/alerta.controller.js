@@ -22,30 +22,63 @@ export const criarAlerta = async (req, res, next) => {
         // lógica de negócio
         const resultado = await verificarAlertas(leitura);
 
-        
-// 🔍 verificar se já existe alerta ativo
-const existente = await Alerta.findOne({
-    where: {
-        idarea_risco: resultado.idarea_risco,
-        estado: "ativo"
-    }
-});
-
-if (existente) {
-    console.log("⚠️ Já existe alerta ativo para esta área");
-    return res.status(200).json({
-        message: "Já existe alerta ativo",
-        alerta: existente
-    });
-}
-
-
-        if (!resultado) {
+        // se não há alerta (nível verde) retorna sem criar/atualizar
+        if (resultado.nivel === 1) {
             return res.status(200).json({
                 message: "Sem alerta (nível verde)"
             });
         }
 
+        // 🔍 verificar se já existe alerta ativo para a área
+        const existente = await Alerta.findOne({
+            where: {
+                idarea_risco: resultado.idarea_risco,
+                estado: "ativo"
+            }
+        });
+
+
+if (existente) {
+
+    // ✅ se voltou a verde → resolver alerta
+    if (resultado.nivel === 1) {
+        await existente.update({
+            estado: "resolvido"
+        });
+
+        return res.status(200).json({
+            message: "Alerta resolvido (voltou a verde)",
+            alerta: existente
+        });
+    }
+
+    // ✅ se nível mudou OU score mudou → atualiza
+    if (
+        Number(existente.idnivel_alerta) !== Number(resultado.nivel) ||
+        Number(existente.score_risco) !== Number(resultado.score_risco)
+    ) {
+        await existente.update({
+            idnivel_alerta: resultado.nivel,
+            descricao: resultado.mensagem,
+            score_risco: resultado.score_risco || existente.score_risco,
+            idleitura_sensor: newLeitura.idleitura_sensor
+        });
+
+        return res.status(200).json({
+            message: "Alerta atualizado",
+            alerta: existente
+        });
+    }
+
+    // ✅ se não mudou nada → ignora
+    return res.status(200).json({
+        message: "Já existe alerta ativo (sem alterações)",
+        alerta: existente
+    });
+}
+
+
+        // criar novo alerta
         const newAlerta = await Alerta.create({
             idnivel_alerta: resultado.nivel,
             idarea_risco: resultado.idarea_risco,
@@ -208,7 +241,7 @@ export const atualizarAlerta = async (req, res, next) => {
 };
 
 // controller to delete an alert
-export const deletarAlerta = async (req, res, next) => {
+export const apagarAlerta = async (req, res, next) => {
     try {
         const { id } = req.params;
 
@@ -221,13 +254,13 @@ export const deletarAlerta = async (req, res, next) => {
         await alerta.destroy();
 
         res.status(200).json({
-            message: `Alerta com ID ${id} deletado com sucesso`,
+            message: `Alerta com ID ${id} apagado com sucesso`,
             links: {
                 allAlertas: { href: "/alertas", method: "GET" }
             }
         });
     } catch (error) {
-        next(genericError("Erro ao deletar alerta"));
+        next(genericError("Erro ao apagar alerta"));
     }
 };
 

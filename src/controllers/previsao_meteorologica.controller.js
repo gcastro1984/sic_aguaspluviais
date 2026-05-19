@@ -164,8 +164,8 @@ export const atualizarPrevisao = async (req, res) => {
     }
 };
 
-// DELETE - Deletar previsão
-export const deletarPrevisao = async (req, res) => {
+// DELETE - 
+export const apagarPrevisao = async (req, res) => {
     try {
         const { id } = req.params;
 

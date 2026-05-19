@@ -6,7 +6,7 @@ import {
     obterAlertas,
     obterAlertaPorId,
     atualizarAlerta,
-    deletarAlerta,
+    apagarAlerta,
     obterAlertasPorEstado
 } from '../controllers/alerta.controller.js';
 
@@ -28,6 +28,6 @@ router.get('/estado/:estado', obterAlertasPorEstado);
 router.put('/:id', atualizarAlerta);
 
 // DELETE - Delete an alert
-router.delete('/:id', deletarAlerta);
+router.delete('/:id', apagarAlerta);
 
 export default router;

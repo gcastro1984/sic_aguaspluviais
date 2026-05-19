@@ -4,7 +4,7 @@ import {
     obterPrevisoes,
     obterPrevisaoPorId,
     atualizarPrevisao,
-    deletarPrevisao,
+    apagarPrevisao,
     obterPrevisoesPorArea,
     obterPrevisoesPorConfianca
 } from '../controllers/previsao_meteorologica.controller.js';
@@ -30,6 +30,6 @@ router.get('/confianca/:confianca_minima', obterPrevisoesPorConfianca);
 router.put('/:id', atualizarPrevisao);
 
 // DELETE - Deletar previsão
-router.delete('/:id', deletarPrevisao);
+router.delete('/:id', apagarPrevisao);
 
 export default router;

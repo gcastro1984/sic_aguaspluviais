@@ -8,9 +8,10 @@ import alertasRoutes from './src/routes/alerta.routes.js';
 import leiturasRoutes from './src/routes/leitura.routes.js';
 import areasRiscoRoutes from './src/routes/arearisco.routes.js';
 import infraestruturaRoutes from './src/routes/infraestrutura.routes.js';
-import previsaoMeteorologicaRoutes from './src/routes/previsao_meteorologica.routes.js';
+import previsaoMeteorologicaRoutes from './src/routes/previsao_metereologica.routes.js';
 import alertaPlanoAcaoRoutes from './src/routes/alerta_plano_acao.routes.js';
-
+import destinatariosRoutes from './src/routes/destinatarios.routes.js';
+import notificacaoRoutes from './src/routes/notificacao.routes.js';
 
 // create Express application
 
@@ -28,13 +29,15 @@ app.use(express.json()); //enable parsing JSON body data
 app.use('/login', utilizadorRoutes);
 app.use('/sensores', sensorRoutes);
 app.use('/alertas', alertasRoutes);
-app.use('/leituras',leiturasRoutes)
+app.use('/leituras', leiturasRoutes);
 app.use('/areasrisco', areasRiscoRoutes);
 app.use('/infraestruturas', infraestruturaRoutes);
 app.use('/previsoes', previsaoMeteorologicaRoutes);
 app.use('/alertas-planos', alertaPlanoAcaoRoutes);
+app.use('/destinatarios', destinatariosRoutes);
+app.use('/notificacoes', notificacaoRoutes);
 
 // server creation and listening for any incoming requests
 app.listen(port, host, (error) => {
-console.log(`Server running on  http://${host}:${port}/`)
+    console.log(`Server running on  http://${host}:${port}/`)
 })

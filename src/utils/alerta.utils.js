@@ -3,6 +3,7 @@ import { Sensor, InfraestruturaUrbana, PrevisaoMeteorologica, LeituraSensor,Area
 import { classificarAlerta } from "./classificar_alerta.utils.js";
 
 export async function verificarAlertas(leitura) {
+
     
 
     // obter sensor + área
@@ -22,7 +23,7 @@ export async function verificarAlertas(leitura) {
     const areaId = sensor.infraestrutura_urbana.idarea_risco;
     const infraestruturaId = sensor.idinfraestrutura_urbana;
 
-    console.log('AREA ID:', areaId, 'INFRAESTRUTURA ID:', infraestruturaId);
+
 
     // obter previsão mais recente dessa área
     const previsao = await PrevisaoMeteorologica.findOne({
@@ -30,7 +31,9 @@ export async function verificarAlertas(leitura) {
         order: [["data_emissao", "DESC"]]
     });
 
+
     const forecast1h = Number(previsao?.precipitacao_prevista_mm || 0);
+
 
     // calcular chuva últimas 6 leituras
     const ultimas = await LeituraSensor.findAll({
@@ -45,14 +48,22 @@ export async function verificarAlertas(leitura) {
     const water = Number(leitura.valor);
 
     //  classificar alerta
-    const nivel = classificarAlerta({
+
+    const resultado = classificarAlerta({
         water,
         rain6h,
         forecast1h
     });
 
+    const nivel = resultado.idnivel_alerta;
+    const score = resultado.score_risco;
+    const razoes = resultado.razoes;
+    console.log(`razões: ${razoes.join("; ")}`);
+
+   
+
     // ignorar se verde
-    if (nivel === 1) return null;
+   //if (nivel === 1) return null;
 
     // criar objeto alerta
     return {
@@ -63,6 +74,8 @@ export async function verificarAlertas(leitura) {
         valor_sensor: water,
         precipitacao_prevista: forecast1h,
         precipitacao_acumulada: rain6h,
-        mensagem: `Alerta nível ${nivel}`
+        score_risco: score,
+
+        mensagem: `Alerta nível ${nivel} : ${razoes.join("; ")}`
     };
 }

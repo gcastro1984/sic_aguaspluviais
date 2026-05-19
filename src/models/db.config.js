@@ -35,9 +35,12 @@ import area_riscoModel from "./area_risco.model.js";
 import InfraestruturaUrbanaModel from "./infraestrutura_urbana.model.js";
 import PlanoAcaoModel from "./plano_acao.model.js";
 import UtilizadorModel from "./utilizador.model.js";
+import DestinatariosModel from "./destinatarios.model.js";
 import AlertaPlanoAcaoModel from "./alerta_plano_acao.model.js";
+import alertaDestinatarioModel from "./alerta_destinatario.model.js";
 import criterio_alertaModel from "./criterio_alerta.model.js";
 import PrevisaoMeteorologicaModel from "./previsao_meteorologica.model.js";
+import NotificacaoModel from "./notificacao.model.js";
 
 const Sensor = SensorModel(sequelize, DataTypes);
 const InfraestruturaUrbana = InfraestruturaUrbanaModel(sequelize, DataTypes);
@@ -49,7 +52,10 @@ const Alerta = AlertModel(sequelize, DataTypes);
 const PlanoAcao = PlanoAcaoModel(sequelize, DataTypes);
 const AlertaPlanoAcao = AlertaPlanoAcaoModel(sequelize, DataTypes);
 const Utilizador = UtilizadorModel(sequelize, DataTypes);
+const Destinatarios = DestinatariosModel(sequelize, DataTypes);
+const AlertaDestinatario = alertaDestinatarioModel(sequelize, DataTypes);
 const PrevisaoMeteorologica = PrevisaoMeteorologicaModel(sequelize, DataTypes);
+const Notificacao = NotificacaoModel(sequelize, DataTypes);
 
 
 
@@ -121,6 +127,18 @@ PlanoAcao.hasMany(AlertaPlanoAcao, {
     foreignKey: 'idplano_acao'
 });
 
+Alerta.belongsToMany(Destinatarios, {
+    through: AlertaDestinatario,
+    foreignKey: 'idalerta',
+    otherKey: 'iddestinatario'
+});
+
+Destinatarios.belongsToMany(Alerta, {
+    through: AlertaDestinatario,
+    foreignKey: 'iddestinatario',
+    otherKey: 'idalerta'
+});
+
 NivelAlerta.hasMany(CriterioAlerta, {
     foreignKey: 'idnivel_alerta'
 });
@@ -160,6 +178,23 @@ PrevisaoMeteorologica.belongsTo(AreaRisco, {
     foreignKey: 'idarea_risco'
 });
 
+// NOTIFICACAO -> ALERTA / DESTINATARIO
+Notificacao.belongsTo(Alerta, {
+    foreignKey: 'idalerta'
+});
+
+Alerta.hasMany(Notificacao, {
+    foreignKey: 'idalerta'
+});
+
+Notificacao.belongsTo(Destinatarios, {
+    foreignKey: 'iddestinatario'
+});
+
+Destinatarios.hasMany(Notificacao, {
+    foreignKey: 'iddestinatario'
+});
+
 // Sync the models with the database
 try {
     await sequelize.sync(); // use { force: true } to drop and recreate tables on every sync (use with caution in production)
@@ -174,4 +209,4 @@ try {
 
 
 // export the models for use in other modules
-export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, Utilizador, PrevisaoMeteorologica, CriterioAlerta, AlertaPlanoAcao };
+export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, Utilizador, Destinatarios, PrevisaoMeteorologica, CriterioAlerta, AlertaPlanoAcao, AlertaDestinatario, Notificacao };
