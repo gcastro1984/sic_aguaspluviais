@@ -90,7 +90,7 @@ export const obterAreaRiscoPorId = async (req, res, next) => {
         const area = await AreaRisco.findByPk(id);
 
         if (!area) {
-            return next(notFoundError(`Área de risco com ID ${id} não encontrada`));
+            return next(notFoundError('área de risco', id));
         }
 
         // add hateoas links to the response
@@ -118,7 +118,7 @@ export const atualizarAreaRisco = async (req, res, next) => {
         const area = await AreaRisco.findByPk(id);
 
         if (!area) {
-            return next(notFoundError(`Área de risco com ID ${id} não encontrada`));
+            return next(notFoundError('área de risco', id));
         }
 
         // Validate vulnerabilidade_base range if provided
@@ -170,7 +170,7 @@ export const deletarAreaRisco = async (req, res, next) => {
         const area = await AreaRisco.findByPk(id);
 
         if (!area) {
-            return next(notFoundError(`Área de risco com ID ${id} não encontrada`));
+            return next(notFoundError('área de risco', id));
         }
 
         await area.destroy();

@@ -17,12 +17,12 @@ export const criarNotificacao = async (req, res, next) => {
 
         const alerta = await Alerta.findByPk(idalerta);
         if (!alerta) {
-            return next(notFoundError('Alerta', idalerta));
+            return next(notFoundError('alerta', idalerta));
         }
 
         const destinatario = await Destinatarios.findByPk(iddestinatario);
         if (!destinatario) {
-            return next(notFoundError('Destinatario', iddestinatario));
+            return next(notFoundError('destinatário', iddestinatario));
         }
 
         const notificacao = await Notificacao.create({
@@ -86,7 +86,7 @@ export const obterNotificacaoPorId = async (req, res, next) => {
         });
 
         if (!notificacao) {
-            return next(notFoundError('Notificação', id));
+            return next(notFoundError('notificação', id));
         }
 
         return res.status(200).json({
@@ -109,20 +109,20 @@ export const atualizarNotificacao = async (req, res, next) => {
 
         const notificacao = await Notificacao.findByPk(id);
         if (!notificacao) {
-            return next(notFoundError('Notificação', id));
+            return next(notFoundError('notificação', id));
         }
 
         if (idalerta !== undefined) {
             const alerta = await Alerta.findByPk(idalerta);
             if (!alerta) {
-                return next(notFoundError('Alerta', idalerta));
+                return next(notFoundError('alerta', idalerta));
             }
         }
 
         if (iddestinatario !== undefined) {
             const destinatario = await Destinatarios.findByPk(iddestinatario);
             if (!destinatario) {
-                return next(notFoundError('Destinatario', iddestinatario));
+                return next(notFoundError('destinatário', iddestinatario));
             }
         }
 
@@ -159,7 +159,7 @@ export const apagarNotificacao = async (req, res, next) => {
         const notificacao = await Notificacao.findByPk(id);
 
         if (!notificacao) {
-            return next(notFoundError('Notificação', id));
+            return next(notFoundError('notificação', id));
         }
 
         await notificacao.destroy();

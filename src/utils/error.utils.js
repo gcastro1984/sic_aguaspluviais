@@ -40,15 +40,27 @@ export const validationError = (errors) => {
 
 // error builder for 404 - Resource not found: 
 // e.g. "product": ["Resource product with ID 10 not found"]
+// or allow a single message string for backwards compatibility
 export const notFoundError = (resource, id) => {
-    // convert resource name to lowercase for the error response key, e.g. "product" instead of "Product"
-    resource = resource.toLowerCase();
-
     const err = new Error("Resource not found");
     err.status = 404;
-    err.errors = {
-        [resource]: `Resource ${resource} with ID ${id} not found`
-    };
+
+    if (id === undefined) {
+        if (typeof resource === 'string' && resource.includes(' ')) {
+            err.errors = { message: resource };
+        } else {
+            const key = (typeof resource === 'string') ? resource.toLowerCase() : 'resource';
+            err.errors = {
+                [key]: `Resource ${resource} not found`
+            };
+        }
+    } else {
+        const key = (typeof resource === 'string') ? resource.toLowerCase() : 'resource';
+        err.errors = {
+            [key]: `Resource ${resource} with ID ${id} not found`
+        };
+    }
+
     return err;
 };
 
@@ -65,5 +77,5 @@ export const genericError = (message = "Internal Server Error") => {
 export const conflictError = (message) => {
     const err = new Error(message);
     err.status = 409;
-    return err; 
+    return err;
 };

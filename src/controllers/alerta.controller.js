@@ -16,7 +16,7 @@ export const criarAlerta = async (req, res, next) => {
         const leitura = await LeituraSensor.findByPk(idleitura_sensor);
 
         if (!leitura) {
-            return next(notFoundError("Leitura não encontrada"));
+            return next(notFoundError('leitura', idleitura_sensor));
         }
 
         // lógica de negócio
@@ -38,44 +38,44 @@ export const criarAlerta = async (req, res, next) => {
         });
 
 
-if (existente) {
+        if (existente) {
 
-    // ✅ se voltou a verde → resolver alerta
-    if (resultado.nivel === 1) {
-        await existente.update({
-            estado: "resolvido"
-        });
+            // ✅ se voltou a verde → resolver alerta
+            if (resultado.nivel === 1) {
+                await existente.update({
+                    estado: "resolvido"
+                });
 
-        return res.status(200).json({
-            message: "Alerta resolvido (voltou a verde)",
-            alerta: existente
-        });
-    }
+                return res.status(200).json({
+                    message: "Alerta resolvido (voltou a verde)",
+                    alerta: existente
+                });
+            }
 
-    // ✅ se nível mudou OU score mudou → atualiza
-    if (
-        Number(existente.idnivel_alerta) !== Number(resultado.nivel) ||
-        Number(existente.score_risco) !== Number(resultado.score_risco)
-    ) {
-        await existente.update({
-            idnivel_alerta: resultado.nivel,
-            descricao: resultado.mensagem,
-            score_risco: resultado.score_risco || existente.score_risco,
-            idleitura_sensor: newLeitura.idleitura_sensor
-        });
+            // ✅ se nível mudou OU score mudou → atualiza
+            if (
+                Number(existente.idnivel_alerta) !== Number(resultado.nivel) ||
+                Number(existente.score_risco) !== Number(resultado.score_risco)
+            ) {
+                await existente.update({
+                    idnivel_alerta: resultado.nivel,
+                    descricao: resultado.mensagem,
+                    score_risco: resultado.score_risco || existente.score_risco,
+                    idleitura_sensor: newLeitura.idleitura_sensor
+                });
 
-        return res.status(200).json({
-            message: "Alerta atualizado",
-            alerta: existente
-        });
-    }
+                return res.status(200).json({
+                    message: "Alerta atualizado",
+                    alerta: existente
+                });
+            }
 
-    // ✅ se não mudou nada → ignora
-    return res.status(200).json({
-        message: "Já existe alerta ativo (sem alterações)",
-        alerta: existente
-    });
-}
+            // ✅ se não mudou nada → ignora
+            return res.status(200).json({
+                message: "Já existe alerta ativo (sem alterações)",
+                alerta: existente
+            });
+        }
 
 
         // criar novo alerta
@@ -169,7 +169,7 @@ export const obterAlertaPorId = async (req, res, next) => {
         });
 
         if (!alerta) {
-            return next(notFoundError(`Alerta com ID ${id} não encontrado`));
+            return next(notFoundError('alerta', id));
         }
 
         const alertaResponse = {
@@ -196,7 +196,7 @@ export const atualizarAlerta = async (req, res, next) => {
         const alerta = await Alerta.findByPk(id);
 
         if (!alerta) {
-            return next(notFoundError(`Alerta com ID ${id} não encontrado`));
+            return next(notFoundError('alerta', id));
         }
 
         // Validate score_risco range if provided
@@ -248,7 +248,7 @@ export const apagarAlerta = async (req, res, next) => {
         const alerta = await Alerta.findByPk(id);
 
         if (!alerta) {
-            return next(notFoundError(`Alerta com ID ${id} não encontrado`));
+            return next(notFoundError('alerta', id));
         }
 
         await alerta.destroy();

@@ -1,56 +1,96 @@
 
 
-import { sensores } from '../models/sensores.model_mock.js';
+import { Sensor } from '../models/db.config.js';
+import { sequelizeValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
 
-export const getAllSensors = (req, res) => {
-    res.status(200).json(sensores);
+
+export const getAllSensors = async (req, res, next) => {
+    try {
+        const sensores = await Sensor.findAll();
+        return res.status(200).json(sensores);
+    } catch (error) {
+        return next(genericError(error.message));
+    }
+}
+
+export const createNewSensor = async (req, res, next) => {
+    try {
+        const {
+            tipo,
+            localizacao,
+            status,
+            idinfraestrutura_urbana,
+            data_proxima_manutencao,
+        } = req.body;
+
+        if (!tipo || !localizacao) {
+            return next(validationError({
+                tipo: 'Campo tipo é obrigatório.',
+                localizacao: 'Campo localizacao é obrigatório.'
+            }));
+        }
+
+        const newSensor = await Sensor.create({
+            tipo,
+            localizacao,
+            status: status ?? 'offline',
+            idinfraestrutura_urbana: idinfraestrutura_urbana ??  null,
+            data_proxima_manutencao: data_proxima_manutencao ??  null
+        });
+
+        return res.status(201).json(newSensor);
+    } catch (error) {
+        if (error.name === 'SequelizeValidationError') {
+            return next(sequelizeValidationError(error.errors));
+        }
+        return next(genericError(error.message));
+    }
 }
 
 
-export const createNewSensor = (req, res) => {
 
-    const { tipo, localizacao, status, infraUrb, dataProxmanutencao } = req.body;
+export const getSensorById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
 
+        const sensor = await Sensor.findByPk(id);
+        if (!sensor) {
+            return next(notFoundError('sensor', id));
+        }
 
-
-    const newSensor = {
-        id: sensores.length + 1,
-        tipo,
-        localizacao,
-        status: status ? status : 'offline',
-        infraUrb,
-        dataProxmanutencao
-    };
-
-    sensores.push(newSensor);
-
-    res.status(201).json(newSensor);
+        return res.status(200).json(sensor);
+    } catch (error) {
+        if (error.name === 'SequelizeValidationError') {
+            return next(sequelizeValidationError(error.errors));
+        }
+        return next(genericError(error.message));
+    }
 }
 
+export const updateStatusSensor = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
 
+        const validStatus = ['online', 'offline', 'manutencao'];
+        if (!validStatus.includes(status)) {
+            return next(validationError({
+                status: 'Status inválido. Use online, offline ou manutencao.'
+            }));
+        }
 
-export const updateStatusSensor = (req, res) => {
-    const { id } = req.params.id;
-    const { status } = req.body;
+        const sensor = await Sensor.findByPk(id);
+        if (!sensor) {
+            return next(notFoundError('sensor', id));
+        }
 
-    // Validar se o status é válido
-    const validStatus = ['online', 'offline', 'manutencao'];
-    if (!validStatus.includes(status)) {
-        const error = new Error('Status inválido. Status deve ser "online", "offline" ou "manutencao".');
-        error.status = 400;
-        throw error;
+        await sensor.update({ status });
+        return res.status(200).json(sensor);
+    } catch (error) {
+        if (error.name === 'SequelizeValidationError') {
+            return next(sequelizeValidationError(error.errors));
+        }
+        return next(genericError(error.message));
     }
-
-    //Validar se o sensor existe
-    const sensor = sensores.find(s => s.id === parseInt(id));
-
-    if (!sensor) {
-        const error = new Error('Sensor não encontrado');
-        error.status = 404;
-        throw error;
-    }
-
-    sensor.status = status;
-    res.status(200).json(sensor);
 }
 

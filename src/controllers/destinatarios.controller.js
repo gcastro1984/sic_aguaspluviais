@@ -63,7 +63,7 @@ export const obterDestinatarioPorId = async (req, res, next) => {
         const destinatario = await Destinatarios.findByPk(id);
 
         if (!destinatario) {
-            return next(notFoundError('Destinatário', id));
+            return next(notFoundError('destinatário', id));
         }
 
         return res.status(200).json({
@@ -118,7 +118,7 @@ export const apagarDestinatario = async (req, res, next) => {
         const destinatario = await Destinatarios.findByPk(id);
 
         if (!destinatario) {
-            return next(notFoundError('Destinatário', id));
+            return next(notFoundError('destinatário', id));
         }
 
         await destinatario.destroy();

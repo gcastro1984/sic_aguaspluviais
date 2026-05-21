@@ -1,5 +1,5 @@
+// import Express
 import express from 'express';
-import cors from 'cors';
 import 'dotenv/config';
 
 import utilizadorRoutes from './src/routes/utilizador.routes.js';
@@ -10,21 +10,23 @@ import areasRiscoRoutes from './src/routes/arearisco.routes.js';
 import infraestruturaRoutes from './src/routes/infraestrutura.routes.js';
 import previsaoMeteorologicaRoutes from './src/routes/previsao_metereologica.routes.js';
 import alertaPlanoAcaoRoutes from './src/routes/alerta_plano_acao.routes.js';
-import planoAcaoRoutes from './src/routes/plano_acao.routes.js';
 import destinatariosRoutes from './src/routes/destinatarios.routes.js';
 import notificacaoRoutes from './src/routes/notificacao.routes.js';
+
+// create Express application
 
 const app = express();
 const host = process.env.HOST || 'localhost';
 const port = process.env.PORT || 3001;
 
-// ✅ CORS primeiro
-app.use(cors());
 
-// ✅ depois JSON
-app.use(express.json());
 
-// rotas
+app.use(express.json()); //enable parsing JSON body data
+
+
+
+// sets the server response to a GET request on URI /
+
 app.use('/login', utilizadorRoutes);
 app.use('/sensores', sensorRoutes);
 app.use('/alertas', alertasRoutes);
@@ -33,11 +35,10 @@ app.use('/areasrisco', areasRiscoRoutes);
 app.use('/infraestruturas', infraestruturaRoutes);
 app.use('/previsoes', previsaoMeteorologicaRoutes);
 app.use('/alertas-planos', alertaPlanoAcaoRoutes);
-app.use('/planos-acao', planoAcaoRoutes);
 app.use('/destinatarios', destinatariosRoutes);
 app.use('/notificacoes', notificacaoRoutes);
 
-// erro global
+// global error handler
 app.use((err, req, res, next) => {
     const status = err.status || 500;
     const payload = {
@@ -51,9 +52,7 @@ app.use((err, req, res, next) => {
     res.status(status).json(payload);
 });
 
-// start
-app.listen(port, host, () => {
-
-    console.log(`Server running on http://${host}:${port}/`);
-
-});
+// server creation and listening for any incoming requests
+app.listen(port, host, (error) => {
+    console.log(`Server running on  http://${host}:${port}/`)
+})

@@ -1,4 +1,4 @@
-import { LeituraSensor, Sensor, Alerta,InfraestruturaUrbana, AreaRisco } from '../models/db.config.js'; 
+import { LeituraSensor, Sensor, Alerta, InfraestruturaUrbana, AreaRisco } from '../models/db.config.js';
 
 // import error utils
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
@@ -10,74 +10,74 @@ import { verificarAlertas } from '../utils/alerta.utils.js';
 export const criarLeitura = async (req, res, next) => {
 
     try {
-        
-        
-    //  validar sensor ANTES de criar leitura
+
+
+        //  validar sensor ANTES de criar leitura
         const sensor = await Sensor.findByPk(req.body.idsensor);
 
 
 
         if (!sensor) {
-            return next(notFoundError("Sensor não encontrado"));
+            return next(notFoundError('sensor', req.body.idsensor));
         }
         if (sensor.status !== 'online') {
             return next(conflictError("Sensor está offline ou em manutenção"));
         }
-       
 
-            // sequelize valida automaticamente
+
+        // sequelize valida automaticamente
         const newLeitura = await LeituraSensor.create(req.body);
 
         // verificar/classificar alertas
         const resultado = await verificarAlertas(newLeitura);
         console.log("Resultado da verificação de alertas:", resultado);
 
-        
-      
 
 
-const existente = await Alerta.findOne({
-    where: {
-        idarea_risco: resultado.idarea_risco,
-        estado: "ativo"
-    }
-
-});
-console.log("Alerta existente encontrado:", existente);
 
 
-let alertaCriado = null;
+        const existente = await Alerta.findOne({
+            where: {
+                idarea_risco: resultado.idarea_risco,
+                estado: "ativo"
+            }
+
+        });
+        console.log("Alerta existente encontrado:", existente);
 
 
-// se ficou verde → resolve alerta existente
-if (resultado.nivel === 1 && existente) {
-    await existente.update({ estado: "resolvido" });
-    return null;
-}
+        let alertaCriado = null;
 
-if (existente) {
-    console.log("Alerta já existe → a atualizar");
 
-    await existente.update({
-        idnivel_alerta: resultado.nivel,
-        descricao: resultado.mensagem,
-        score_risco: resultado.score_risco || 0,
-        idleitura_sensor: newLeitura.idleitura_sensor
-    });
+        // se ficou verde → resolve alerta existente
+        if (resultado.nivel === 1 && existente) {
+            await existente.update({ estado: "resolvido" });
+            return null;
+        }
 
-    alertaCriado = existente;
+        if (existente) {
+            console.log("Alerta já existe → a atualizar");
 
-} else {
-    alertaCriado = await Alerta.create({
-        idnivel_alerta: resultado.nivel,
-        idarea_risco: resultado.idarea_risco,
-        idinfraestrutura_urbana: resultado.idinfraestrutura_urbana,
-        idleitura_sensor: newLeitura.idleitura_sensor,
-        descricao: resultado.mensagem,
-        score_risco: resultado.score_risco || 0,
-        estado: "ativo"
-    });
-}
+            await existente.update({
+                idnivel_alerta: resultado.nivel,
+                descricao: resultado.mensagem,
+                score_risco: resultado.score_risco || 0,
+                idleitura_sensor: newLeitura.idleitura_sensor
+            });
+
+            alertaCriado = existente;
+
+        } else {
+            alertaCriado = await Alerta.create({
+                idnivel_alerta: resultado.nivel,
+                idarea_risco: resultado.idarea_risco,
+                idinfraestrutura_urbana: resultado.idinfraestrutura_urbana,
+                idleitura_sensor: newLeitura.idleitura_sensor,
+                descricao: resultado.mensagem,
+                score_risco: resultado.score_risco || 0,
+                estado: "ativo"
+            });
+        }
 
 
 

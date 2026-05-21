@@ -3,9 +3,10 @@
 
 // Importar os dados dos utilizadores
 
-import Utilizador from '../models/utilizador.model.js';
+import { Utilizador } from '../models/db.config.js';
+import { genericError } from '../utils/error.utils.js';
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   try {
     // 1. Extrair dados
     const { email, password } = req.body;
@@ -48,13 +49,10 @@ export const login = async (req, res) => {
       userId: user.idutilizador,
       token: "exemplo-de-jwt-token"
     });
-    
-} catch (error) {
+
+  } catch (error) {
     console.error(error);
-    res.status(500).json({
-      error: "server_error",
-      description: error.message
-    });
+    return next(genericError(error.message));
+
   }
 };
-

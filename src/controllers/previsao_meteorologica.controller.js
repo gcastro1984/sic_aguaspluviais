@@ -1,31 +1,34 @@
 import { PrevisaoMeteorologica, AreaRisco } from "../models/db.config.js";
+import { missingFieldsValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
 
 // CREATE - Criar nova previsão meteorológica
-export const criarPrevisao = async (req, res) => {
+export const criarPrevisao = async (req, res, next) => {
     try {
         const { idarea_risco, fonte, data_emissao, data_inicio_previsao, data_fim_previsao, horizonte_horas, precipitacao_prevista_mm, confianca } = req.body;
 
         // Validar campos obrigatórios
-        if (!idarea_risco || !fonte || !data_inicio_previsao || !data_fim_previsao || horizonte_horas === undefined || precipitacao_prevista_mm === undefined || confianca === undefined) {
-            return res.status(400).json({
-                message: "Campos obrigatórios faltando",
-                required: ["idarea_risco", "fonte", "data_inicio_previsao", "data_fim_previsao", "horizonte_horas", "precipitacao_prevista_mm", "confianca"]
-            });
+        const missingFields = [];
+        if (!idarea_risco) missingFields.push('idarea_risco');
+        if (!fonte) missingFields.push('fonte');
+        if (!data_inicio_previsao) missingFields.push('data_inicio_previsao');
+        if (!data_fim_previsao) missingFields.push('data_fim_previsao');
+        if (horizonte_horas === undefined) missingFields.push('horizonte_horas');
+        if (precipitacao_prevista_mm === undefined) missingFields.push('precipitacao_prevista_mm');
+        if (confianca === undefined) missingFields.push('confianca');
+
+        if (missingFields.length) {
+            return next(missingFieldsValidationError(missingFields));
         }
 
         // Validar confiança (0-1)
         if (confianca < 0 || confianca > 1) {
-            return res.status(400).json({
-                message: "Confiança deve estar entre 0 e 1"
-            });
+            return next(validationError('Confiança deve estar entre 0 e 1'));
         }
 
         // Verificar se área de risco existe
         const areaRisco = await AreaRisco.findByPk(idarea_risco);
         if (!areaRisco) {
-            return res.status(400).json({
-                message: "Área de risco não encontrada"
-            });
+            return next(notFoundError('area_risco', idarea_risco));
         }
 
         const previsao = await PrevisaoMeteorologica.create({
@@ -51,15 +54,12 @@ export const criarPrevisao = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao criar previsão:", error);
-        return res.status(500).json({
-            message: "Erro ao criar previsão meteorológica",
-            error: error.message
-        });
+        return next(genericError("Erro ao criar previsão meteorológica"));
     }
 };
 
 // READ - Obter todas as previsões
-export const obterPrevisoes = async (req, res) => {
+export const obterPrevisoes = async (req, res, next) => {
     try {
         const previsoes = await PrevisaoMeteorologica.findAll({
             include: [{ model: AreaRisco, attributes: ['idarea_risco', 'nome'] }]
@@ -76,15 +76,12 @@ export const obterPrevisoes = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao obter previsões:", error);
-        return res.status(500).json({
-            message: "Erro ao obter previsões meteorológicas",
-            error: error.message
-        });
+        return next(genericError("Erro ao obter previsões meteorológicas"));
     }
 };
 
 // READ - Obter previsão por ID
-export const obterPrevisaoPorId = async (req, res) => {
+export const obterPrevisaoPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
 
@@ -110,15 +107,12 @@ export const obterPrevisaoPorId = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao obter previsão:", error);
-        return res.status(500).json({
-            message: "Erro ao obter previsão meteorológica",
-            error: error.message
-        });
+        return next(genericError("Erro ao obter previsão meteorológica"));
     }
 };
 
 // UPDATE - Atualizar previsão
-export const atualizarPrevisao = async (req, res) => {
+export const atualizarPrevisao = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { fonte, data_inicio_previsao, data_fim_previsao, horizonte_horas, precipitacao_prevista_mm, confianca } = req.body;
@@ -157,15 +151,12 @@ export const atualizarPrevisao = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao atualizar previsão:", error);
-        return res.status(500).json({
-            message: "Erro ao atualizar previsão meteorológica",
-            error: error.message
-        });
+        return next(genericError("Erro ao atualizar previsão meteorológica"));
     }
 };
 
 // DELETE - 
-export const apagarPrevisao = async (req, res) => {
+export const apagarPrevisao = async (req, res, next) => {
     try {
         const { id } = req.params;
 
@@ -189,15 +180,12 @@ export const apagarPrevisao = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao deletar previsão:", error);
-        return res.status(500).json({
-            message: "Erro ao deletar previsão meteorológica",
-            error: error.message
-        });
+        return next(genericError("Erro ao deletar previsão meteorológica"));
     }
 };
 
 // FILTER - Obter previsões por área de risco
-export const obterPrevisoesPorArea = async (req, res) => {
+export const obterPrevisoesPorArea = async (req, res, next) => {
     try {
         const { idarea_risco } = req.params;
 
@@ -224,15 +212,12 @@ export const obterPrevisoesPorArea = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao obter previsões por área:", error);
-        return res.status(500).json({
-            message: "Erro ao obter previsões por área",
-            error: error.message
-        });
+        return next(genericError("Erro ao obter previsões por área"));
     }
 };
 
 // FILTER - Obter previsões por confiança mínima
-export const obterPrevisoesPorConfianca = async (req, res) => {
+export const obterPrevisoesPorConfianca = async (req, res, next) => {
     try {
         const { confianca_minima } = req.params;
 
@@ -260,9 +245,6 @@ export const obterPrevisoesPorConfianca = async (req, res) => {
         });
     } catch (error) {
         console.error("Erro ao obter previsões por confiança:", error);
-        return res.status(500).json({
-            message: "Erro ao obter previsões por confiança",
-            error: error.message
-        });
+        return next(genericError("Erro ao obter previsões por confiança"));
     }
 };

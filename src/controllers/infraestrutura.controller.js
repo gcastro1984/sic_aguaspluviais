@@ -85,7 +85,7 @@ export const obterInfraestruturaUrbanaId = async (req, res, next) => {
         const infra = await InfraestruturaUrbana.findByPk(id);
 
         if (!infra) {
-            return next(notFoundError(`Infraestrutura urbana com ID ${id} não encontrada`));
+            return next(notFoundError('infraestrutura urbana', id));
         }
 
         // add hateoas links to the response
@@ -113,7 +113,7 @@ export const atualizarInfraestruturaUrbana = async (req, res, next) => {
         const infra = await InfraestruturaUrbana.findByPk(id);
 
         if (!infra) {
-            return next(notFoundError(`Infraestrutura urbana com ID ${id} não encontrada`));
+            return next(notFoundError('infraestrutura urbana', id));
         }
 
         // Update only provided fields
@@ -160,7 +160,7 @@ export const deletarInfraestruturaUrbana = async (req, res, next) => {
         const infra = await InfraestruturaUrbana.findByPk(id);
 
         if (!infra) {
-            return next(notFoundError(`Infraestrutura urbana com ID ${id} não encontrada`));
+            return next(notFoundError('infraestrutura urbana', id));
         }
 
         await infra.destroy();
