@@ -1,19 +1,15 @@
 import express from 'express';
+import * as SensoresController from '../controllers/sensor.contoller.js';
+import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
+
 const router = express.Router();
 
+const writeRoles = requireRole('administrador', 'operador_municipal');
 
-
-
-
-import * as SensoresController from '../controllers/sensor.contoller.js';
-
-router.post('/', SensoresController.createNewSensor);
+router.get('/',    SensoresController.getAllSensors);
 router.get('/:id', SensoresController.getSensorById);
-router.put('/:id/status', SensoresController.updateStatusSensor);
-router.get('/', SensoresController.getAllSensors);
-
-
-
-
+router.post('/',   verifyToken, writeRoles, SensoresController.createNewSensor);
+router.patch('/:id', verifyToken, writeRoles, SensoresController.atualizarSensor);
+router.delete('/:id', verifyToken, writeRoles, SensoresController.deletarSensor);
 
 export default router;

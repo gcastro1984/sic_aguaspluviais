@@ -18,18 +18,18 @@ const app = express();
 const host = process.env.HOST || 'localhost';
 const port = process.env.PORT || 3001;
 
-// ✅ CORS primeiro
+//CORS primeiro
 app.use(cors());
 
-// ✅ depois JSON
+// depois JSON
 app.use(express.json());
 
 // rotas
-app.use('/login', utilizadorRoutes);
+app.use('/utilizadores', utilizadorRoutes);
 app.use('/sensores', sensorRoutes);
 app.use('/alertas', alertasRoutes);
 app.use('/leituras', leiturasRoutes);
-app.use('/areasrisco', areasRiscoRoutes);
+app.use('/areas-risco', areasRiscoRoutes);
 app.use('/infraestruturas', infraestruturaRoutes);
 app.use('/previsoes', previsaoMeteorologicaRoutes);
 app.use('/alertas-planos', alertaPlanoAcaoRoutes);

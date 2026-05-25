@@ -1,7 +1,12 @@
 import { Destinatarios } from '../models/db.config.js';
-
-// import error utils
 import { missingFieldsValidationError, notFoundError, sequelizeValidationError, genericError } from '../utils/error.utils.js';
+import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
+
+const destLinks = (id) => ({
+    self:   { href: `/destinatarios/${id}`,  method: 'GET' },
+    update: { href: `/destinatarios/${id}`,  method: 'PATCH' },
+    delete: { href: `/destinatarios/${id}`,  method: 'DELETE' }
+});
 
 export const criarDestinatario = async (req, res, next) => {
     try {
@@ -11,46 +16,32 @@ export const criarDestinatario = async (req, res, next) => {
         if (!tipo) missingFields.push('tipo');
         if (!nome) missingFields.push('nome');
         if (!email) missingFields.push('email');
+        if (missingFields.length) return next(missingFieldsValidationError(missingFields));
 
-        if (missingFields.length) {
-            return next(missingFieldsValidationError(missingFields));
-        }
-
-        const destinatario = await Destinatarios.create({
-            tipo,
-            nome,
-            email,
-            contato
-        });
+        const destinatario = await Destinatarios.create({ tipo, nome, email, contato });
 
         return res.status(201).json({
             message: 'Destinatário criado com sucesso',
             data: destinatario,
-            links: {
-                self: `/destinatarios/${destinatario.iddestinatario}`,
-                allDestinatarios: '/destinatarios'
-            }
+            links: { ...destLinks(destinatario.iddestinatario), allDestinatarios: { href: '/destinatarios', method: 'GET' } }
         });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') {
-            return next(sequelizeValidationError(error.errors));
-        }
+        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
         return next(genericError(error.message));
     }
 };
 
 export const obterDestinatarios = async (req, res, next) => {
     try {
-        const destinatarios = await Destinatarios.findAll();
+        const { page, limit, offset } = getPagination(req.query);
+        const { count, rows } = await Destinatarios.findAndCountAll({ limit, offset });
+
+        const data = rows.map(d => ({ ...d.toJSON(), links: destLinks(d.iddestinatario) }));
 
         return res.status(200).json({
-            message: 'Destinatários recuperados com sucesso',
-            total: destinatarios.length,
-            data: destinatarios,
-            links: {
-                self: '/destinatarios',
-                create: { method: 'POST', url: '/destinatarios' }
-            }
+            data,
+            pagination: paginationMeta(count, page, limit),
+            links: { self: { href: '/destinatarios', method: 'GET' }, create: { href: '/destinatarios', method: 'POST' } }
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -62,17 +53,11 @@ export const obterDestinatarioPorId = async (req, res, next) => {
         const { id } = req.params;
         const destinatario = await Destinatarios.findByPk(id);
 
-        if (!destinatario) {
-            return next(notFoundError('destinatário', id));
-        }
+        if (!destinatario) return next(notFoundError('destinatário', id));
 
         return res.status(200).json({
-            message: 'Destinatário recuperado com sucesso',
             data: destinatario,
-            links: {
-                self: `/destinatarios/${destinatario.iddestinatario}`,
-                allDestinatarios: '/destinatarios'
-            }
+            links: { ...destLinks(id), allDestinatarios: { href: '/destinatarios', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -85,29 +70,23 @@ export const atualizarDestinatario = async (req, res, next) => {
         const { tipo, nome, email, contato } = req.body;
 
         const destinatario = await Destinatarios.findByPk(id);
-        if (!destinatario) {
-            return next(notFoundError('Destinatário', id));
-        }
+        if (!destinatario) return next(notFoundError('Destinatário', id));
 
-        await destinatario.update({
-            tipo: tipo !== undefined ? tipo : destinatario.tipo,
-            nome: nome !== undefined ? nome : destinatario.nome,
-            email: email !== undefined ? email : destinatario.email,
-            contato: contato !== undefined ? contato : destinatario.contato
-        });
+        const updateData = {};
+        if (tipo !== undefined) updateData.tipo = tipo;
+        if (nome !== undefined) updateData.nome = nome;
+        if (email !== undefined) updateData.email = email;
+        if (contato !== undefined) updateData.contato = contato;
+
+        await destinatario.update(updateData);
 
         return res.status(200).json({
             message: 'Destinatário atualizado com sucesso',
             data: destinatario,
-            links: {
-                self: `/destinatarios/${destinatario.iddestinatario}`,
-                allDestinatarios: '/destinatarios'
-            }
+            links: { ...destLinks(id), allDestinatarios: { href: '/destinatarios', method: 'GET' } }
         });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') {
-            return next(sequelizeValidationError(error.errors));
-        }
+        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
         return next(genericError(error.message));
     }
 };
@@ -117,20 +96,10 @@ export const apagarDestinatario = async (req, res, next) => {
         const { id } = req.params;
         const destinatario = await Destinatarios.findByPk(id);
 
-        if (!destinatario) {
-            return next(notFoundError('destinatário', id));
-        }
+        if (!destinatario) return next(notFoundError('destinatário', id));
 
         await destinatario.destroy();
-
-        return res.status(200).json({
-            message: 'Destinatário apagado com sucesso',
-            deletedId: id,
-            links: {
-                allDestinatarios: '/destinatarios',
-                create: { method: 'POST', url: '/destinatarios' }
-            }
-        });
+        return res.status(204).send();
     } catch (error) {
         return next(genericError(error.message));
     }

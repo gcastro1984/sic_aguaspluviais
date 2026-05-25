@@ -1,12 +1,18 @@
-import { PrevisaoMeteorologica, AreaRisco } from "../models/db.config.js";
+import { Op } from 'sequelize';
+import { PrevisaoMeteorologica, AreaRisco } from '../models/db.config.js';
 import { missingFieldsValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
+import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
 
-// CREATE - Criar nova previsão meteorológica
+const previsaoLinks = (id) => ({
+    self:   { href: `/previsoes/${id}`,  method: 'GET' },
+    update: { href: `/previsoes/${id}`,  method: 'PATCH' },
+    delete: { href: `/previsoes/${id}`,  method: 'DELETE' }
+});
+
 export const criarPrevisao = async (req, res, next) => {
     try {
         const { idarea_risco, fonte, data_emissao, data_inicio_previsao, data_fim_previsao, horizonte_horas, precipitacao_prevista_mm, confianca } = req.body;
 
-        // Validar campos obrigatórios
         const missingFields = [];
         if (!idarea_risco) missingFields.push('idarea_risco');
         if (!fonte) missingFields.push('fonte');
@@ -16,71 +22,64 @@ export const criarPrevisao = async (req, res, next) => {
         if (precipitacao_prevista_mm === undefined) missingFields.push('precipitacao_prevista_mm');
         if (confianca === undefined) missingFields.push('confianca');
 
-        if (missingFields.length) {
-            return next(missingFieldsValidationError(missingFields));
-        }
+        if (missingFields.length) return next(missingFieldsValidationError(missingFields));
 
-        // Validar confiança (0-1)
-        if (confianca < 0 || confianca > 1) {
+        if (confianca < 0 || confianca > 1)
             return next(validationError('Confiança deve estar entre 0 e 1'));
-        }
 
-        // Verificar se área de risco existe
         const areaRisco = await AreaRisco.findByPk(idarea_risco);
-        if (!areaRisco) {
-            return next(notFoundError('area_risco', idarea_risco));
-        }
+        if (!areaRisco) return next(notFoundError('area_risco', idarea_risco));
 
         const previsao = await PrevisaoMeteorologica.create({
-            idarea_risco,
-            fonte,
+            idarea_risco, fonte,
             data_emissao: data_emissao || new Date(),
-            data_inicio_previsao,
-            data_fim_previsao,
-            horizonte_horas,
-            precipitacao_prevista_mm,
-            confianca
+            data_inicio_previsao, data_fim_previsao,
+            horizonte_horas, precipitacao_prevista_mm, confianca
         });
 
         return res.status(201).json({
-            message: "Previsão meteorológica criada com sucesso",
             data: previsao,
-            links: {
-                self: `/previsoes/${previsao.idprevisao}`,
-                allPrevisoes: `/previsoes`,
-                update: `/previsoes/${previsao.idprevisao}`,
-                delete: `/previsoes/${previsao.idprevisao}`
-            }
+            links: { ...previsaoLinks(previsao.idprevisao), allPrevisoes: { href: '/previsoes', method: 'GET' } }
         });
     } catch (error) {
-        console.error("Erro ao criar previsão:", error);
-        return next(genericError("Erro ao criar previsão meteorológica"));
+        return next(genericError('Erro ao criar previsão meteorológica'));
     }
 };
 
-// READ - Obter todas as previsões
+// GET /previsoes?idarea_risco=1&confianca_minima=0.8&page=1&limit=20
 export const obterPrevisoes = async (req, res, next) => {
     try {
-        const previsoes = await PrevisaoMeteorologica.findAll({
-            include: [{ model: AreaRisco, attributes: ['idarea_risco', 'nome'] }]
+        const { idarea_risco, confianca_minima } = req.query;
+        const { page, limit, offset } = getPagination(req.query);
+
+        const where = {};
+        if (idarea_risco) where.idarea_risco = parseInt(idarea_risco);
+        if (confianca_minima !== undefined) {
+            const conf = parseFloat(confianca_minima);
+            if (isNaN(conf) || conf < 0 || conf > 1)
+                return next(validationError('confianca_minima deve estar entre 0 e 1'));
+            where.confianca = { [Op.gte]: conf };
+        }
+
+        const { count, rows } = await PrevisaoMeteorologica.findAndCountAll({
+            where,
+            include: [{ model: AreaRisco, attributes: ['idarea_risco', 'nome'] }],
+            limit,
+            offset
         });
 
+        const data = rows.map(p => ({ ...p.toJSON(), links: previsaoLinks(p.idprevisao) }));
+
         return res.status(200).json({
-            message: "Previsões recuperadas com sucesso",
-            total: previsoes.length,
-            data: previsoes,
-            links: {
-                self: `/previsoes`,
-                create: { method: "POST", url: `/previsoes` }
-            }
+            data,
+            pagination: paginationMeta(count, page, limit),
+            links: { self: { href: '/previsoes', method: 'GET' }, create: { href: '/previsoes', method: 'POST' } }
         });
     } catch (error) {
-        console.error("Erro ao obter previsões:", error);
-        return next(genericError("Erro ao obter previsões meteorológicas"));
+        return next(genericError('Erro ao obter previsões meteorológicas'));
     }
 };
 
-// READ - Obter previsão por ID
 export const obterPrevisaoPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -89,162 +88,58 @@ export const obterPrevisaoPorId = async (req, res, next) => {
             include: [{ model: AreaRisco, attributes: ['idarea_risco', 'nome'] }]
         });
 
-        if (!previsao) {
-            return res.status(404).json({
-                message: "Previsão meteorológica não encontrada"
-            });
-        }
+        if (!previsao) return next(notFoundError('previsão', id));
 
         return res.status(200).json({
-            message: "Previsão recuperada com sucesso",
             data: previsao,
-            links: {
-                self: `/previsoes/${previsao.idprevisao}`,
-                allPrevisoes: `/previsoes`,
-                update: `/previsoes/${previsao.idprevisao}`,
-                delete: `/previsoes/${previsao.idprevisao}`
-            }
+            links: { ...previsaoLinks(id), allPrevisoes: { href: '/previsoes', method: 'GET' } }
         });
     } catch (error) {
-        console.error("Erro ao obter previsão:", error);
-        return next(genericError("Erro ao obter previsão meteorológica"));
+        return next(genericError('Erro ao obter previsão meteorológica'));
     }
 };
 
-// UPDATE - Atualizar previsão
 export const atualizarPrevisao = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { fonte, data_inicio_previsao, data_fim_previsao, horizonte_horas, precipitacao_prevista_mm, confianca } = req.body;
 
         const previsao = await PrevisaoMeteorologica.findByPk(id);
+        if (!previsao) return next(notFoundError('previsão', id));
 
-        if (!previsao) {
-            return res.status(404).json({
-                message: "Previsão meteorológica não encontrada"
-            });
-        }
+        if (confianca !== undefined && (confianca < 0 || confianca > 1))
+            return next(validationError('Confiança deve estar entre 0 e 1'));
 
-        // Validar confiança se fornecida
-        if (confianca !== undefined && (confianca < 0 || confianca > 1)) {
-            return res.status(400).json({
-                message: "Confiança deve estar entre 0 e 1"
-            });
-        }
+        const updateData = {};
+        if (fonte !== undefined) updateData.fonte = fonte;
+        if (data_inicio_previsao !== undefined) updateData.data_inicio_previsao = data_inicio_previsao;
+        if (data_fim_previsao !== undefined) updateData.data_fim_previsao = data_fim_previsao;
+        if (horizonte_horas !== undefined) updateData.horizonte_horas = horizonte_horas;
+        if (precipitacao_prevista_mm !== undefined) updateData.precipitacao_prevista_mm = precipitacao_prevista_mm;
+        if (confianca !== undefined) updateData.confianca = confianca;
 
-        await previsao.update({
-            fonte: fonte || previsao.fonte,
-            data_inicio_previsao: data_inicio_previsao || previsao.data_inicio_previsao,
-            data_fim_previsao: data_fim_previsao || previsao.data_fim_previsao,
-            horizonte_horas: horizonte_horas !== undefined ? horizonte_horas : previsao.horizonte_horas,
-            precipitacao_prevista_mm: precipitacao_prevista_mm !== undefined ? precipitacao_prevista_mm : previsao.precipitacao_prevista_mm,
-            confianca: confianca !== undefined ? confianca : previsao.confianca
-        });
+        await previsao.update(updateData);
 
         return res.status(200).json({
-            message: "Previsão meteorológica atualizada com sucesso",
+            message: 'Previsão meteorológica atualizada com sucesso',
             data: previsao,
-            links: {
-                self: `/previsoes/${previsao.idprevisao}`,
-                allPrevisoes: `/previsoes`
-            }
+            links: { ...previsaoLinks(id), allPrevisoes: { href: '/previsoes', method: 'GET' } }
         });
     } catch (error) {
-        console.error("Erro ao atualizar previsão:", error);
-        return next(genericError("Erro ao atualizar previsão meteorológica"));
+        return next(genericError('Erro ao atualizar previsão meteorológica'));
     }
 };
 
-// DELETE - 
 export const apagarPrevisao = async (req, res, next) => {
     try {
         const { id } = req.params;
-
         const previsao = await PrevisaoMeteorologica.findByPk(id);
 
-        if (!previsao) {
-            return res.status(404).json({
-                message: "Previsão meteorológica não encontrada"
-            });
-        }
+        if (!previsao) return next(notFoundError('previsão', id));
 
         await previsao.destroy();
-
-        return res.status(200).json({
-            message: "Previsão meteorológica deletada com sucesso",
-            deletedId: id,
-            links: {
-                allPrevisoes: `/previsoes`,
-                create: { method: "POST", url: `/previsoes` }
-            }
-        });
+        return res.status(204).send();
     } catch (error) {
-        console.error("Erro ao deletar previsão:", error);
-        return next(genericError("Erro ao deletar previsão meteorológica"));
-    }
-};
-
-// FILTER - Obter previsões por área de risco
-export const obterPrevisoesPorArea = async (req, res, next) => {
-    try {
-        const { idarea_risco } = req.params;
-
-        const previsoes = await PrevisaoMeteorologica.findAll({
-            where: { idarea_risco },
-            include: [{ model: AreaRisco, attributes: ['idarea_risco', 'nome'] }]
-        });
-
-        if (previsoes.length === 0) {
-            return res.status(404).json({
-                message: "Nenhuma previsão encontrada para esta área"
-            });
-        }
-
-        return res.status(200).json({
-            message: "Previsões por área recuperadas com sucesso",
-            total: previsoes.length,
-            idarea_risco,
-            data: previsoes,
-            links: {
-                self: `/previsoes/area/${idarea_risco}`,
-                allPrevisoes: `/previsoes`
-            }
-        });
-    } catch (error) {
-        console.error("Erro ao obter previsões por área:", error);
-        return next(genericError("Erro ao obter previsões por área"));
-    }
-};
-
-// FILTER - Obter previsões por confiança mínima
-export const obterPrevisoesPorConfianca = async (req, res, next) => {
-    try {
-        const { confianca_minima } = req.params;
-
-        const confiancaNum = parseFloat(confianca_minima);
-        if (isNaN(confiancaNum) || confiancaNum < 0 || confiancaNum > 1) {
-            return res.status(400).json({
-                message: "Confiança mínima deve estar entre 0 e 1"
-            });
-        }
-
-        const previsoes = await PrevisaoMeteorologica.findAll({
-            where: { confianca: { [require('sequelize').Op.gte]: confiancaNum } },
-            include: [{ model: AreaRisco, attributes: ['idarea_risco', 'nome'] }]
-        });
-
-        return res.status(200).json({
-            message: "Previsões com confiança mínima recuperadas com sucesso",
-            total: previsoes.length,
-            confianca_minima: confiancaNum,
-            data: previsoes,
-            links: {
-                self: `/previsoes/confianca/${confianca_minima}`,
-                allPrevisoes: `/previsoes`
-            }
-        });
-    } catch (error) {
-        console.error("Erro ao obter previsões por confiança:", error);
-        return next(genericError("Erro ao obter previsões por confiança"));
+        return next(genericError('Erro ao deletar previsão meteorológica'));
     }
 };

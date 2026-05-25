@@ -1,35 +1,16 @@
 import express from 'express';
-import {
-    criarPrevisao,
-    obterPrevisoes,
-    obterPrevisaoPorId,
-    atualizarPrevisao,
-    apagarPrevisao,
-    obterPrevisoesPorArea,
-    obterPrevisoesPorConfianca
-} from '../controllers/previsao_meteorologica.controller.js';
+import { criarPrevisao, obterPrevisoes, obterPrevisaoPorId, atualizarPrevisao, apagarPrevisao } from '../controllers/previsao_meteorologica.controller.js';
+import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// POST - Criar nova previsão meteorológica
-router.post('/', criarPrevisao);
+const writeRoles = requireRole('administrador', 'analista_risco');
 
-// GET - Obter todas as previsões
-router.get('/', obterPrevisoes);
-
-// GET - Obter previsão por ID
+// GET /previsoes?idarea_risco=1&confianca_minima=0.8&page=1&limit=20
+router.get('/',    obterPrevisoes);
 router.get('/:id', obterPrevisaoPorId);
-
-// GET - Obter previsões por área
-router.get('/area/:idarea_risco', obterPrevisoesPorArea);
-
-// GET - Obter previsões por confiança mínima
-router.get('/confianca/:confianca_minima', obterPrevisoesPorConfianca);
-
-// PUT - Atualizar previsão
-router.put('/:id', atualizarPrevisao);
-
-// DELETE - Deletar previsão
-router.delete('/:id', apagarPrevisao);
+router.post('/',   verifyToken, writeRoles, criarPrevisao);
+router.patch('/:id', verifyToken, writeRoles, atualizarPrevisao);
+router.delete('/:id', verifyToken, writeRoles, apagarPrevisao);
 
 export default router;

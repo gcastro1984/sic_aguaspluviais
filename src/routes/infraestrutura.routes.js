@@ -1,37 +1,16 @@
 import express from 'express';
-
-// import controllers for infraestrutura urbana resource
-import {
-    criarInfraestruturaUrbana,
-    obterInfraestruturas,
-    obterInfraestruturaUrbanaId,
-    atualizarInfraestruturaUrbana,
-    deletarInfraestruturaUrbana,
-    obterInfraestruturasPorArea,
-    obterInfraestruturasPorTipo
-} from '../controllers/infraestrutura.controller.js';
+import { criarInfraestruturaUrbana, obterInfraestruturas, obterInfraestruturaUrbanaId, atualizarInfraestruturaUrbana, deletarInfraestruturaUrbana } from '../controllers/infraestrutura.controller.js';
+import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// POST - Create a new infraestrutura urbana
-router.post('/', criarInfraestruturaUrbana);
+const writeRoles = requireRole('administrador', 'operador_municipal');
 
-// GET - Get all infraestruturas urbanas
-router.get('/', obterInfraestruturas);
-
-// GET - Get infraestrutura urbana by ID
+// GET /infraestruturas?idarea_risco=1&tipo=X&page=1&limit=20
+router.get('/',    obterInfraestruturas);
 router.get('/:id', obterInfraestruturaUrbanaId);
-
-// GET - Get infraestruturas by area de risco
-router.get('/area/:idarea_risco', obterInfraestruturasPorArea);
-
-// GET - Get infraestruturas by tipo
-router.get('/tipo/:tipo', obterInfraestruturasPorTipo);
-
-// PUT - Update an infraestrutura urbana
-router.put('/:id', atualizarInfraestruturaUrbana);
-
-// DELETE - Delete an infraestrutura urbana
-router.delete('/:id', deletarInfraestruturaUrbana);
+router.post('/',   verifyToken, writeRoles, criarInfraestruturaUrbana);
+router.patch('/:id', verifyToken, writeRoles, atualizarInfraestruturaUrbana);
+router.delete('/:id', verifyToken, writeRoles, deletarInfraestruturaUrbana);
 
 export default router;

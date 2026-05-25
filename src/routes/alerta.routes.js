@@ -1,33 +1,16 @@
 import express from 'express';
-
-// import controllers for alerts resource
-import {
-    criarAlerta,
-    obterAlertas,
-    obterAlertaPorId,
-    atualizarAlerta,
-    apagarAlerta,
-    obterAlertasPorEstado
-} from '../controllers/alerta.controller.js';
+import { criarAlerta, obterAlertas, obterAlertaPorId, atualizarAlerta, apagarAlerta } from '../controllers/alerta.controller.js';
+import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// POST - Create a new alert
-router.post('/', criarAlerta);
+const writeRoles = requireRole('administrador', 'operador_municipal');
 
-// GET - Get all alerts
-router.get('/', obterAlertas);
-
-// GET - Get alert by ID
+// GET /alertas?estado=ativo&page=1&limit=20
+router.get('/',    obterAlertas);
 router.get('/:id', obterAlertaPorId);
-
-// GET - Get alerts by estado
-router.get('/estado/:estado', obterAlertasPorEstado);
-
-// PUT - Update an alert
-router.put('/:id', atualizarAlerta);
-
-// DELETE - Delete an alert
-router.delete('/:id', apagarAlerta);
+router.post('/',   verifyToken, writeRoles, criarAlerta);
+router.patch('/:id', verifyToken, writeRoles, atualizarAlerta);
+router.delete('/:id', verifyToken, writeRoles, apagarAlerta);
 
 export default router;

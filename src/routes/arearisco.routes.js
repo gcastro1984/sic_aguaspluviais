@@ -1,33 +1,16 @@
 import express from 'express';
-
-// import controllers for area de risco resource
-import { 
-    criarAreaRisco, 
-    obterAreasRisco, 
-    obterAreaRiscoPorId, 
-    atualizarAreaRisco, 
-    deletarAreaRisco,
-    obterAreasPorVulnerabilidade 
-} from '../controllers/arearisco.controller.js';    
+import { criarAreaRisco, obterAreasRisco, obterAreaRiscoPorId, atualizarAreaRisco, deletarAreaRisco } from '../controllers/arearisco.controller.js';
+import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-// POST - Create a new area de risco
-router.post('/', criarAreaRisco);
+const writeRoles = requireRole('administrador', 'operador_municipal');
 
-// GET - Get all areas de risco
-router.get('/', obterAreasRisco);
-
-// GET - Get area de risco by ID
+// GET /areas-risco?vulnerabilidade=3&page=1&limit=20
+router.get('/',    obterAreasRisco);
 router.get('/:id', obterAreaRiscoPorId);
-
-// GET - Get areas by vulnerability level
-router.get('/vulnerabilidade/:nivel', obterAreasPorVulnerabilidade); /////NOT 
-
-// PUT - Update an area de risco
-router.put('/:id', atualizarAreaRisco);
-
-// DELETE - Delete an area de risco
-router.delete('/:id', deletarAreaRisco);
+router.post('/',   verifyToken, writeRoles, criarAreaRisco);
+router.patch('/:id', verifyToken, writeRoles, atualizarAreaRisco);
+router.delete('/:id', verifyToken, writeRoles, deletarAreaRisco);
 
 export default router;

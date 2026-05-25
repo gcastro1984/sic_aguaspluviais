@@ -1,252 +1,138 @@
-import { AlertaPlanoAcao, Alerta, PlanoAcao } from "../models/db.config.js";
+import { AlertaPlanoAcao, Alerta, PlanoAcao } from '../models/db.config.js';
 import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
+import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
 
-// CREATE - Criar novo alerta plano ação
+const apaLinks = (idalerta, idplano) => ({
+    self:   { href: `/alertas-planos/${idalerta}/${idplano}`,  method: 'GET' },
+    update: { href: `/alertas-planos/${idalerta}/${idplano}`,  method: 'PATCH' },
+    delete: { href: `/alertas-planos/${idalerta}/${idplano}`,  method: 'DELETE' }
+});
+
 export const criarAlertaPlanoAcao = async (req, res, next) => {
     try {
         const { idalerta, idplano_acao, estado, responsavel, data_inicio, data_conclusao, observacoes } = req.body;
 
-        // Validar campos obrigatórios
-        if (!idalerta || !idplano_acao || !estado || !responsavel) {
+        if (!idalerta || !idplano_acao || !estado || !responsavel)
             return next(missingFieldsValidationError(['idalerta', 'idplano_acao', 'estado', 'responsavel']));
-        }
 
-        // Verificar se alerta existe
         const alerta = await Alerta.findByPk(idalerta);
-        if (!alerta) {
-            return next(notFoundError('alerta', idalerta));
-        }
+        if (!alerta) return next(notFoundError('alerta', idalerta));
 
-        // Verificar se plano de ação existe
         const planoAcao = await PlanoAcao.findByPk(idplano_acao);
-        if (!planoAcao) {
-            return next(notFoundError('plano_acao', idplano_acao));
-        }
+        if (!planoAcao) return next(notFoundError('plano_acao', idplano_acao));
 
         const alertaPlanoAcao = await AlertaPlanoAcao.create({
-            idalerta,
-            idplano_acao,
-            estado,
-            responsavel,
+            idalerta, idplano_acao, estado, responsavel,
             data_inicio: data_inicio || null,
             data_conclusao: data_conclusao || null,
             observacoes: observacoes || null
         });
 
         return res.status(201).json({
-            message: "Alerta Plano Ação criado com sucesso",
+            message: 'Alerta Plano Ação criado com sucesso',
             data: alertaPlanoAcao,
-            links: {
-                self: `/alertas/${idalerta}/planos/${idplano_acao}`,
-                allAlertasPlanos: `/alertas-planos`,
-                update: `/alertas/${idalerta}/planos/${idplano_acao}`,
-                delete: `/alertas/${idalerta}/planos/${idplano_acao}`
-            }
+            links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
         });
     } catch (error) {
-        console.error("Erro ao criar alerta plano ação:", error);
-        if (error.name === 'SequelizeUniqueConstraintError') {
+        if (error.name === 'SequelizeUniqueConstraintError')
             return next(validationError({ association: 'Esta associação de alerta e plano de ação já existe' }));
-        }
-        return next(genericError("Erro ao criar alerta plano ação"));
+        return next(genericError('Erro ao criar alerta plano ação'));
     }
 };
 
-// READ - Obter todos os alertas planos ação
+// GET /alertas-planos?estado=X&idalerta=1&idplano_acao=2&page=1&limit=20
 export const obterAlertasPlanos = async (req, res, next) => {
     try {
-        const alertasPlanos = await AlertaPlanoAcao.findAll({
+        const { estado, idalerta, idplano_acao } = req.query;
+        const { page, limit, offset } = getPagination(req.query);
+
+        const where = {};
+        if (estado) where.estado = estado;
+        if (idalerta) where.idalerta = parseInt(idalerta);
+        if (idplano_acao) where.idplano_acao = parseInt(idplano_acao);
+
+        const { count, rows } = await AlertaPlanoAcao.findAndCountAll({
+            where,
             include: [
-                { model: Alerta, attributes: ['idalerta', 'descricao', 'estado'] },
+                { model: Alerta,   attributes: ['idalerta', 'descricao', 'estado'] },
                 { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
-            ]
+            ],
+            limit,
+            offset
         });
 
+        const data = rows.map(r => ({ ...r.toJSON(), links: apaLinks(r.idalerta, r.idplano_acao) }));
+
         return res.status(200).json({
-            message: "Alertas Planos Ação recuperados com sucesso",
-            total: alertasPlanos.length,
-            data: alertasPlanos,
-            links: {
-                self: `/alertas-planos`,
-                create: { method: "POST", url: `/alertas-planos` }
-            }
+            data,
+            pagination: paginationMeta(count, page, limit),
+            links: { self: { href: '/alertas-planos', method: 'GET' }, create: { href: '/alertas-planos', method: 'POST' } }
         });
     } catch (error) {
-        console.error("Erro ao obter alertas planos:", error);
-        return next(genericError("Erro ao obter alertas planos ação"));
+        return next(genericError('Erro ao obter alertas planos ação'));
     }
 };
 
-// READ - Obter alertas planos por ID de alerta
-export const obterPorIdAlerta = async (req, res, next) => {
+export const obterAlertaPlanoAcaoPorIds = async (req, res, next) => {
     try {
-        const { idalerta } = req.params;
+        const { idalerta, idplano_acao } = req.params;
 
-        const alertasPlanos = await AlertaPlanoAcao.findAll({
-            where: { idalerta },
+        const apa = await AlertaPlanoAcao.findOne({
+            where: { idalerta, idplano_acao },
             include: [
-                { model: Alerta, attributes: ['idalerta', 'descricao', 'estado'] },
+                { model: Alerta,   attributes: ['idalerta', 'descricao', 'estado'] },
                 { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
             ]
         });
 
-        if (alertasPlanos.length === 0) {
-            return res.status(404).json({
-                message: "Nenhum plano de ação associado a este alerta"
-            });
-        }
+        if (!apa) return next(notFoundError('alerta_plano_acao', `${idalerta}/${idplano_acao}`));
 
         return res.status(200).json({
-            message: "Planos de ação do alerta recuperados com sucesso",
-            total: alertasPlanos.length,
-            idalerta,
-            data: alertasPlanos,
-            links: {
-                self: `/alertas/${idalerta}/planos`,
-                allAlertasPlanos: `/alertas-planos`
-            }
+            data: apa,
+            links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
         });
     } catch (error) {
-        console.error("Erro ao obter alertas planos por alerta:", error);
-        return next(genericError("Erro ao obter alertas planos por alerta"));
+        return next(genericError('Erro ao obter alerta plano ação'));
     }
 };
 
-// READ - Obter alertas planos por ID de plano
-export const obterPorIdPlano = async (req, res, next) => {
-    try {
-        const { idplano_acao } = req.params;
-
-        const alertasPlanos = await AlertaPlanoAcao.findAll({
-            where: { idplano_acao },
-            include: [
-                { model: Alerta, attributes: ['idalerta', 'descricao', 'estado'] },
-                { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
-            ]
-        });
-
-        if (alertasPlanos.length === 0) {
-            return res.status(404).json({
-                message: "Nenhum alerta associado a este plano de ação"
-            });
-        }
-
-        return res.status(200).json({
-            message: "Alertas do plano recuperados com sucesso",
-            total: alertasPlanos.length,
-            idplano_acao,
-            data: alertasPlanos,
-            links: {
-                self: `/planos/${idplano_acao}/alertas`,
-                allAlertasPlanos: `/alertas-planos`
-            }
-        });
-    } catch (error) {
-        console.error("Erro ao obter alertas planos por plano:", error);
-        return next(genericError("Erro ao obter alertas planos por plano"));
-    }
-};
-
-// READ - Obter alertas planos por estado
-export const obterPorEstado = async (req, res, next) => {
-    try {
-        const { estado } = req.params;
-
-        const alertasPlanos = await AlertaPlanoAcao.findAll({
-            where: { estado },
-            include: [
-                { model: Alerta, attributes: ['idalerta', 'descricao', 'estado'] },
-                { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
-            ]
-        });
-
-        if (alertasPlanos.length === 0) {
-            return res.status(404).json({
-                message: `Nenhum alerta plano com estado: ${estado}`
-            });
-        }
-
-        return res.status(200).json({
-            message: "Alertas Planos Ação por estado recuperados com sucesso",
-            total: alertasPlanos.length,
-            estado,
-            data: alertasPlanos,
-            links: {
-                self: `/alertas-planos/estado/${estado}`,
-                allAlertasPlanos: `/alertas-planos`
-            }
-        });
-    } catch (error) {
-        console.error("Erro ao obter alertas planos por estado:", error);
-        return next(genericError("Erro ao obter alertas planos por estado"));
-    }
-};
-
-// UPDATE - Atualizar alertas planos ação
 export const atualizarAlertaPlanoAcao = async (req, res, next) => {
     try {
         const { idalerta, idplano_acao } = req.params;
         const { estado, responsavel, data_inicio, data_conclusao, observacoes } = req.body;
 
-        const alertaPlanoAcao = await AlertaPlanoAcao.findOne({
-            where: { idalerta, idplano_acao }
-        });
+        const apa = await AlertaPlanoAcao.findOne({ where: { idalerta, idplano_acao } });
+        if (!apa) return next(notFoundError('alerta_plano_acao', `${idalerta}/${idplano_acao}`));
 
-        if (!alertaPlanoAcao) {
-            return res.status(404).json({
-                message: "Alerta Plano Ação não encontrado"
-            });
-        }
+        const updateData = {};
+        if (estado !== undefined) updateData.estado = estado;
+        if (responsavel !== undefined) updateData.responsavel = responsavel;
+        if (data_inicio !== undefined) updateData.data_inicio = data_inicio;
+        if (data_conclusao !== undefined) updateData.data_conclusao = data_conclusao;
+        if (observacoes !== undefined) updateData.observacoes = observacoes;
 
-        await alertaPlanoAcao.update({
-            estado: estado || alertaPlanoAcao.estado,
-            responsavel: responsavel || alertaPlanoAcao.responsavel,
-            data_inicio: data_inicio !== undefined ? data_inicio : alertaPlanoAcao.data_inicio,
-            data_conclusao: data_conclusao !== undefined ? data_conclusao : alertaPlanoAcao.data_conclusao,
-            observacoes: observacoes || alertaPlanoAcao.observacoes
-        });
+        await apa.update(updateData);
 
         return res.status(200).json({
-            message: "Alerta Plano Ação atualizado com sucesso",
-            data: alertaPlanoAcao,
-            links: {
-                self: `/alertas/${idalerta}/planos/${idplano_acao}`,
-                allAlertasPlanos: `/alertas-planos`
-            }
+            message: 'Alerta Plano Ação atualizado com sucesso',
+            data: apa,
+            links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
         });
     } catch (error) {
-        console.error("Erro ao atualizar alerta plano ação:", error);
-        return next(genericError("Erro ao atualizar alerta plano ação"));
+        return next(genericError('Erro ao atualizar alerta plano ação'));
     }
 };
 
-// DELETE - Deletar alertas planos ação
 export const deletarAlertaPlanoAcao = async (req, res, next) => {
     try {
         const { idalerta, idplano_acao } = req.params;
 
-        const alertaPlanoAcao = await AlertaPlanoAcao.findOne({
-            where: { idalerta, idplano_acao }
-        });
+        const apa = await AlertaPlanoAcao.findOne({ where: { idalerta, idplano_acao } });
+        if (!apa) return next(notFoundError('alerta_plano_acao', `${idalerta}/${idplano_acao}`));
 
-        if (!alertaPlanoAcao) {
-            return res.status(404).json({
-                message: "Alerta Plano Ação não encontrado"
-            });
-        }
-
-        await alertaPlanoAcao.destroy();
-
-        return res.status(200).json({
-            message: "Alerta Plano Ação deletado com sucesso",
-            deletedIds: { idalerta, idplano_acao },
-            links: {
-                allAlertasPlanos: `/alertas-planos`,
-                create: { method: "POST", url: `/alertas-planos` }
-            }
-        });
+        await apa.destroy();
+        return res.status(204).send();
     } catch (error) {
-        console.error("Erro ao deletar alerta plano ação:", error);
-        return next(genericError("Erro ao deletar alerta plano ação"));
+        return next(genericError('Erro ao deletar alerta plano ação'));
     }
 };

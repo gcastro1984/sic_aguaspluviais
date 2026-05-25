@@ -1,12 +1,15 @@
 import express from 'express';
 import { criarPlanoAcao, obterPlanosAcao, obterPlanoAcaoPorId, atualizarPlanoAcao, apagarPlanoAcao } from '../controllers/plano_acao.controller.js';
+import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.post('/', criarPlanoAcao);
-router.get('/', obterPlanosAcao);
+const writeRoles = requireRole('administrador', 'operador_municipal');
+
+router.get('/',    obterPlanosAcao);
 router.get('/:id', obterPlanoAcaoPorId);
-router.put('/:id', atualizarPlanoAcao);
-router.delete('/:id', apagarPlanoAcao);
+router.post('/',   verifyToken, writeRoles, criarPlanoAcao);
+router.patch('/:id', verifyToken, writeRoles, atualizarPlanoAcao);
+router.delete('/:id', verifyToken, writeRoles, apagarPlanoAcao);
 
 export default router;

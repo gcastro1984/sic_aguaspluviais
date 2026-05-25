@@ -1,18 +1,13 @@
 import express from 'express';
-import {
-    criarDestinatario,
-    obterDestinatarios,
-    obterDestinatarioPorId,
-    atualizarDestinatario,
-    apagarDestinatario
-} from '../controllers/destinatarios.controller.js';
+import { criarDestinatario, obterDestinatarios, obterDestinatarioPorId, atualizarDestinatario, apagarDestinatario } from '../controllers/destinatarios.controller.js';
+import { verifyToken, requireAdmin } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-router.post('/', criarDestinatario);
-router.get('/', obterDestinatarios);
-router.get('/:id', obterDestinatarioPorId);
-router.put('/:id', atualizarDestinatario);
-router.delete('/:id', apagarDestinatario);
+router.get('/',    verifyToken, obterDestinatarios);
+router.get('/:id', verifyToken, obterDestinatarioPorId);
+router.post('/',   verifyToken, requireAdmin, criarDestinatario);
+router.patch('/:id', verifyToken, requireAdmin, atualizarDestinatario);
+router.delete('/:id', verifyToken, requireAdmin, apagarDestinatario);
 
 export default router;

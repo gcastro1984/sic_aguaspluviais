@@ -1792,10 +1792,10 @@
         <div class="page-header" style="margin-bottom:1.5rem;display:block">
           <div class="breadcrumb">SIC · <span>Autenticação</span></div>
           <h2>Acesso ao Sistema</h2>
-          <p>Endpoint: POST /login/login</p>
+          <p>Endpoint: POST /utilizadores/login</p>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Login · POST /login/login</span></div>
+          <div class="card-header"><span class="card-title">Login · POST /utilizadores/login</span></div>
           <div class="card-body">
             <div class="form-group" style="margin-bottom:1rem">
               <label>Username / Email</label>
@@ -2207,6 +2207,9 @@
       m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
     });
 
+    // ─── AUTH TOKEN ────────────────────────────────────────
+    let authToken = null;
+
     // ─── API HELPER ─────────────────────────────────────────
     async function apiCall(method, path, body) {
       try {
@@ -2214,6 +2217,7 @@
           method,
           headers: { 'Content-Type': 'application/json' }
         };
+        if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
         if (body) opts.body = JSON.stringify(body);
         const r = await fetch(API + path, opts);
         const data = await r.json().catch(() => ({}));
@@ -2221,6 +2225,13 @@
       } catch (e) {
         return { ok: false, status: 0, data: { error: 'Sem ligação à API: ' + e.message } };
       }
+    }
+
+    function getList(res) {
+      const d = res.data;
+      if (Array.isArray(d)) return d;
+      if (d && Array.isArray(d.data)) return d.data;
+      return [];
     }
 
     function showResponse(elId, result) {
@@ -2270,34 +2281,36 @@
       const [sensRes, alertRes, areaRes, infraRes] = await Promise.all([
         apiCall('GET', '/sensores'),
         apiCall('GET', '/alertas'),
-        apiCall('GET', '/areasrisco'),
+        apiCall('GET', '/areas-risco'),
         apiCall('GET', '/infraestruturas'),
       ]);
       const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-      set('stat-sensores', Array.isArray(sensRes.data) ? sensRes.data.filter(s => s.status === 'online').length : '—');
-      const alertas = Array.isArray(alertRes.data) ? alertRes.data : [];
+      const sensores = getList(sensRes);
+      set('stat-sensores', sensores.filter(s => s.status === 'online').length);
+      const alertas = getList(alertRes);
       const ativos = alertas.filter(a => a.estado === 'ativo').length;
       set('stat-alertas', ativos || alertas.length || '—');
       const sc = document.getElementById('sidebar-alert-count');
       if (sc) sc.textContent = ativos;
-      set('stat-areas', Array.isArray(areaRes.data) ? areaRes.data.length : '—');
-      set('stat-infra', Array.isArray(infraRes.data) ? infraRes.data.length : '—');
+      set('stat-areas', getList(areaRes).length || (areaRes.data?.pagination?.total ?? '—'));
+      set('stat-infra', getList(infraRes).length || (infraRes.data?.pagination?.total ?? '—'));
     }
 
     async function loadAlertDist() {
       const el = document.getElementById('alert-dist-loading');
       const r = await apiCall('GET', '/alertas');
       if (el) el.style.display = 'none';
-      if (!r.ok || !Array.isArray(r.data)) return;
+      const alertList = getList(r);
+      if (!r.ok || !alertList.length) return;
       const levels = { Vermelho: 0, Laranja: 0, Amarelo: 0, Verde: 0 };
-      r.data.forEach(a => {
+      alertList.forEach(a => {
         const n = parseInt(a.idnivel_alerta);
         if (n === 4) levels.Vermelho++;
         else if (n === 3) levels.Laranja++;
         else if (n === 2) levels.Amarelo++;
         else levels.Verde++;
       });
-      const total = r.data.length || 1;
+      const total = alertList.length || 1;
       const setLevel = (id, cnt, fillId) => {
         document.getElementById(id).textContent = cnt;
         document.getElementById(fillId).style.width = ((cnt / total) * 100) + '%';
@@ -2311,11 +2324,12 @@
     async function loadRecentAlerts() {
       const tl = document.getElementById('recent-alerts-timeline');
       const r = await apiCall('GET', '/alertas');
-      if (!r.ok || !Array.isArray(r.data)) {
+      const alertList = getList(r);
+      if (!r.ok) {
         tl.innerHTML = '<li><div class="empty"><i class="fa fa-unlink"></i><p>Sem ligação à API</p></div></li>';
         return;
       }
-      const recent = r.data.slice(0, 6);
+      const recent = alertList.slice(0, 6);
       if (!recent.length) { tl.innerHTML = '<li><p class="timeline-text" style="color:var(--muted)">Sem alertas registados.</p></li>'; return; }
       tl.innerHTML = recent.map(a => `
     <li>
@@ -2334,7 +2348,7 @@
       if (loading) loading.style.display = 'none';
       const ctx = document.getElementById('dash-chart');
       if (!ctx) return;
-      const data = Array.isArray(r.data) ? r.data.slice(0, 10) : [];
+      const data = getList(r).slice(0, 10);
       const labels = data.map((p, i) => fmtDate(p.data_hora_previsao || p.createdAt) || `P${i + 1}`);
       const values = data.map(p => parseFloat(p.precipitacao_prevista || p.precipitacao || 0));
       if (dashChart) dashChart.destroy();
@@ -2368,7 +2382,7 @@
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const r = await apiCall('GET', '/sensores');
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro a carregar sensores: ' + (r.data.message || r.status)); return; }
-      const list = Array.isArray(r.data) ? r.data : [];
+      const list = getList(r);
       const filter = document.getElementById('filter-sensor-status').value;
       const filtered = filter ? list.filter(s => s.status === filter) : list;
       if (!filtered.length) { tbody.innerHTML = emptyRow(7, 'Nenhum sensor encontrado.'); return; }
@@ -2401,14 +2415,16 @@
     async function updateSensorStatus(id) {
       const s = prompt('Novo status (online / offline / manutencao):');
       if (!s) return;
-      const r = await apiCall('PUT', `/sensores/${id}/status`, { status: s });
+      const r = await apiCall('PATCH', `/sensores/${id}`, { status: s });
       alert(r.ok ? 'Status atualizado!' : 'Erro: ' + JSON.stringify(r.data));
       loadSensores();
     }
 
     async function deleteSensor(id) {
       if (!confirm(`Apagar sensor #${id}?`)) return;
-      alert('Endpoint DELETE /sensores não disponível nesta versão da API.');
+      const r = await apiCall('DELETE', `/sensores/${id}`);
+      alert(r.ok ? 'Sensor apagado!' : 'Erro: ' + JSON.stringify(r.data));
+      loadSensores();
     }
 
     // ─── LEITURAS ──────────────────────────────────────────
@@ -2440,7 +2456,7 @@
       const tbody = document.getElementById('alertas-tbody');
       tbody.innerHTML = `<tr><td colspan="8"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const estado = document.getElementById('filter-alerta-estado').value;
-      const path = estado ? `/alertas/estado/${estado}` : '/alertas';
+      const path = estado ? `/alertas?estado=${estado}` : '/alertas';
       const r = await apiCall('GET', path);
       if (!r.ok) { tbody.innerHTML = errRow(8, 'Erro: ' + (r.data.message || r.status)); return; }
       
@@ -2485,7 +2501,7 @@ const list = Array.isArray(r.data)
     async function editAlerta(id) {
       const estado = prompt('Novo estado (ativo / resolvido / falso_positivo):');
       if (!estado) return;
-      const r = await apiCall('PUT', `/alertas/${id}`, { estado });
+      const r = await apiCall('PATCH', `/alertas/${id}`, { estado });
       alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
       loadAlertas();
     }
@@ -2502,16 +2518,10 @@ const list = Array.isArray(r.data)
       const tbody = document.getElementById('areasrisco-tbody');
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const vuln = document.getElementById('filter-area-vuln').value;
-      const path = vuln ? `/areasrisco/vulnerabilidade/${vuln}` : '/areasrisco';
+      const path = vuln ? `/areas-risco?vulnerabilidade=${vuln}` : '/areas-risco';
       const r = await apiCall('GET', path);
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
-      
-const list = Array.isArray(r.data)
-  ? r.data
-  : Array.isArray(r.data.data)
-    ? r.data.data
-    : []
-
+      const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma área encontrada.'); return; }
       tbody.innerHTML = list.map(a => `
     <tr>
@@ -2534,7 +2544,7 @@ const list = Array.isArray(r.data)
         area_m2: parseFloat(document.getElementById('m-area-m2').value) || undefined,
         populacao_afetada: parseInt(document.getElementById('m-area-pop').value) || undefined,
       };
-      const r = await apiCall('POST', '/areasrisco', body);
+      const r = await apiCall('POST', '/areas-risco', body);
       showResponse('modal-area-resp', r);
       if (r.ok) { setTimeout(() => closeModal('modal-nova-area'), 1200); loadAreasRisco(); }
     }
@@ -2542,14 +2552,14 @@ const list = Array.isArray(r.data)
     async function editAreaRisco(id) {
       const vuln = prompt('Nova vulnerabilidade (baixa / media / alta / muito_alta):');
       if (!vuln) return;
-      const r = await apiCall('PUT', `/areasrisco/${id}`, { nivel_vulnerabilidade: vuln });
+      const r = await apiCall('PATCH', `/areas-risco/${id}`, { nivel_vulnerabilidade: vuln });
       alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
       loadAreasRisco();
     }
 
     async function apagarAreaRisco(id) {
       if (!confirm(`Apagar área de risco #${id}?`)) return;
-      const r = await apiCall('DELETE', `/areasrisco/${id}`);
+      const r = await apiCall('DELETE', `/areas-risco/${id}`);
       alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
       loadAreasRisco();
     }
@@ -2559,10 +2569,10 @@ const list = Array.isArray(r.data)
       const tbody = document.getElementById('infra-tbody');
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const tipo = document.getElementById('filter-infra-tipo').value;
-      const path = tipo ? `/infraestruturas/tipo/${tipo}` : '/infraestruturas';
+      const path = tipo ? `/infraestruturas?tipo=${tipo}` : '/infraestruturas';
       const r = await apiCall('GET', path);
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
-      const list = Array.isArray(r.data) ? r.data : [];
+      const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma infraestrutura encontrada.'); return; }
       tbody.innerHTML = list.map(i => `
     <tr>
@@ -2593,7 +2603,7 @@ const list = Array.isArray(r.data)
     async function editInfra(id) {
       const estado = prompt('Novo estado (operacional / manutencao / avariado):');
       if (!estado) return;
-      const r = await apiCall('PUT', `/infraestruturas/${id}`, { estado });
+      const r = await apiCall('PATCH', `/infraestruturas/${id}`, { estado });
       alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
       loadInfraestruturas();
     }
@@ -2610,10 +2620,10 @@ const list = Array.isArray(r.data)
       const tbody = document.getElementById('previsoes-tbody');
       tbody.innerHTML = `<tr><td colspan="8"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const area = document.getElementById('filter-previsao-area').value;
-      const path = area ? `/previsoes/area/${area}` : '/previsoes';
+      const path = area ? `/previsoes?idarea_risco=${area}` : '/previsoes';
       const r = await apiCall('GET', path);
       if (!r.ok) { tbody.innerHTML = errRow(8, 'Erro: ' + (r.data.message || r.status)); return; }
-      const list = Array.isArray(r.data) ? r.data : [];
+      const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(8, 'Nenhuma previsão encontrada.'); return; }
       tbody.innerHTML = list.map(p => `
     <tr>
@@ -2656,14 +2666,14 @@ const list = Array.isArray(r.data)
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const r = await apiCall('GET', '/destinatarios');
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
-      const list = Array.isArray(r.data) ? r.data : [];
+      const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhum destinatário.'); return; }
       tbody.innerHTML = list.map(d => `
     <tr>
       <td class="td-mono">#${d.iddestinatario || d.id || '—'}</td>
       <td>${d.nome || '—'}</td>
       <td>${d.email || '—'}</td>
-      <td class="td-mono">${d.telefone || '—'}</td>
+      <td class="td-mono">${d.contato || '—'}</td>
       <td>${d.tipo || '—'}</td>
       <td>${estadoBadge(d.ativo ? 'online' : 'offline')}</td>
       <td>${actions(`''`, `apagarDestinatario(${d.iddestinatario || d.id})`)}</td>
@@ -2675,7 +2685,7 @@ const list = Array.isArray(r.data)
       const body = {
         nome: document.getElementById('m-dest-nome').value,
         email: document.getElementById('m-dest-email').value,
-        telefone: document.getElementById('m-dest-tel').value,
+        contato: document.getElementById('m-dest-tel').value,
         tipo: document.getElementById('m-dest-tipo').value,
       };
       const r = await apiCall('POST', '/destinatarios', body);
@@ -2696,7 +2706,7 @@ const list = Array.isArray(r.data)
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const r = await apiCall('GET', '/notificacoes');
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
-      const list = Array.isArray(r.data) ? r.data : [];
+      const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Sem notificações.'); return; }
       tbody.innerHTML = list.map(n => `
     <tr>
@@ -2716,7 +2726,7 @@ const list = Array.isArray(r.data)
         idalerta: parseInt(document.getElementById('m-notif-alerta').value),
         iddestinatario: parseInt(document.getElementById('m-notif-dest').value),
         canal: document.getElementById('m-notif-canal').value,
-        estado: document.getElementById('m-notif-estado').value,
+        estado_envio: document.getElementById('m-notif-estado').value,
         mensagem: document.getElementById('m-notif-msg').value,
       };
       const r = await apiCall('POST', '/notificacoes', body);
@@ -2779,73 +2789,84 @@ const list = Array.isArray(r.data)
     // ─── LOGIN ─────────────────────────────────────────────
     async function doLogin() {
       const body = {
-        username: document.getElementById('login-user').value,
+        email: document.getElementById('login-user').value,
         password: document.getElementById('login-pass').value,
       };
-      const r = await apiCall('POST', '/login/login', body);
+      const r = await apiCall('POST', '/utilizadores/login', body);
       showResponse('login-response', r);
+      if (r.ok && r.data.accessToken) {
+        authToken = r.data.accessToken;
+        const banner = document.getElementById('login-response');
+        if (banner) banner.textContent = 'Login efetuado com sucesso! Tipo: ' + r.data.tipo + '. Token guardado.';
+      }
     }
 
     // ─── ENDPOINTS EXPLORER ────────────────────────────────
     const ENDPOINTS = [
       // AUTH
-      { method: 'POST', path: '/login/login', desc: 'Autenticação', body: { username: 'user', password: 'pass' } },
+      { method: 'POST', path: '/utilizadores/login', desc: 'Autenticação', body: { email: 'admin@example.com', password: 'pass' } },
+      { method: 'POST', path: '/utilizadores', desc: 'Criar utilizador (admin)', body: { email: 'novo@example.com', password: 'pass', tipo: 'operador_municipal' } },
+      { method: 'GET', path: '/utilizadores', desc: 'Listar utilizadores (admin)', body: null },
+      { method: 'GET', path: '/utilizadores/{id}', desc: 'Obter utilizador', body: null },
+      { method: 'DELETE', path: '/utilizadores/{id}', desc: 'Apagar utilizador (admin)', body: null },
       // SENSORES
       { method: 'GET', path: '/sensores', desc: 'Listar sensores', body: null },
+      { method: 'GET', path: '/sensores/{id}', desc: 'Sensor por ID', body: null },
       { method: 'POST', path: '/sensores', desc: 'Criar sensor', body: { tipo: 'pluviometro', localizacao: 'Porto', status: 'online' } },
-      { method: 'PUT', path: '/sensores/{id}/status', desc: 'Atualizar estado sensor', body: { status: 'online' } },
+      { method: 'PATCH', path: '/sensores/{id}', desc: 'Atualizar sensor', body: { status: 'offline' } },
+      { method: 'DELETE', path: '/sensores/{id}', desc: 'Apagar sensor', body: null },
       // LEITURAS
       { method: 'POST', path: '/leituras', desc: 'Criar leitura', body: { idsensor: 1, precipitacao: 12.5, caudal: 0.45, nivel_agua: 0.75 } },
+      { method: 'GET', path: '/leituras', desc: 'Listar leituras', body: null },
+      { method: 'GET', path: '/leituras/{id}', desc: 'Leitura por ID', body: null },
       // ALERTAS
-      { method: 'GET', path: '/alertas', desc: 'Listar alertas', body: null },
+      { method: 'GET', path: '/alertas', desc: 'Listar alertas (?estado=ativo)', body: null },
       { method: 'GET', path: '/alertas/{id}', desc: 'Obter alerta por ID', body: null },
-      { method: 'GET', path: '/alertas/estado/{estado}', desc: 'Filtrar por estado', body: null },
       { method: 'POST', path: '/alertas', desc: 'Criar alerta', body: { idleitura_sensor: 1 } },
-      { method: 'PUT', path: '/alertas/{id}', desc: 'Atualizar alerta', body: { estado: 'resolvido' } },
+      { method: 'PATCH', path: '/alertas/{id}', desc: 'Atualizar alerta', body: { estado: 'resolvido' } },
       { method: 'DELETE', path: '/alertas/{id}', desc: 'Apagar alerta', body: null },
-      // ÁREAS
-      { method: 'GET', path: '/areasrisco', desc: 'Listar áreas de risco', body: null },
-      { method: 'GET', path: '/areasrisco/{id}', desc: 'Área por ID', body: null },
-      { method: 'GET', path: '/areasrisco/vulnerabilidade/{nivel}', desc: 'Filtrar por vulnerabilidade', body: null },
-      { method: 'POST', path: '/areasrisco', desc: 'Criar área de risco', body: { nome: 'Zona Norte', nivel_vulnerabilidade: 'alta' } },
-      { method: 'PUT', path: '/areasrisco/{id}', desc: 'Atualizar área', body: { nivel_vulnerabilidade: 'media' } },
-      { method: 'DELETE', path: '/areasrisco/{id}', desc: 'Apagar área', body: null },
+      // ÁREAS DE RISCO
+      { method: 'GET', path: '/areas-risco', desc: 'Listar áreas (?vulnerabilidade=alta)', body: null },
+      { method: 'GET', path: '/areas-risco/{id}', desc: 'Área por ID', body: null },
+      { method: 'POST', path: '/areas-risco', desc: 'Criar área de risco', body: { nome: 'Zona Norte', nivel_vulnerabilidade: 'alta' } },
+      { method: 'PATCH', path: '/areas-risco/{id}', desc: 'Atualizar área', body: { nivel_vulnerabilidade: 'media' } },
+      { method: 'DELETE', path: '/areas-risco/{id}', desc: 'Apagar área', body: null },
       // INFRAESTRUTURAS
-      { method: 'GET', path: '/infraestruturas', desc: 'Listar infraestruturas', body: null },
+      { method: 'GET', path: '/infraestruturas', desc: 'Listar infraestruturas (?tipo=bueiro&idarea_risco=1)', body: null },
       { method: 'GET', path: '/infraestruturas/{id}', desc: 'Infraestrutura por ID', body: null },
-      { method: 'GET', path: '/infraestruturas/area/{idarea_risco}', desc: 'Por área de risco', body: null },
-      { method: 'GET', path: '/infraestruturas/tipo/{tipo}', desc: 'Por tipo', body: null },
       { method: 'POST', path: '/infraestruturas', desc: 'Criar infraestrutura', body: { nome: 'Bueiro A', tipo: 'bueiro' } },
-      { method: 'PUT', path: '/infraestruturas/{id}', desc: 'Atualizar infraestrutura', body: { estado: 'manutencao' } },
+      { method: 'PATCH', path: '/infraestruturas/{id}', desc: 'Atualizar infraestrutura', body: { estado: 'manutencao' } },
       { method: 'DELETE', path: '/infraestruturas/{id}', desc: 'Apagar infraestrutura', body: null },
       // PREVISÕES
-      { method: 'GET', path: '/previsoes', desc: 'Listar previsões', body: null },
+      { method: 'GET', path: '/previsoes', desc: 'Listar previsões (?idarea_risco=1&confianca_minima=0.7)', body: null },
       { method: 'GET', path: '/previsoes/{id}', desc: 'Previsão por ID', body: null },
-      { method: 'GET', path: '/previsoes/area/{idarea_risco}', desc: 'Por área', body: null },
-      { method: 'GET', path: '/previsoes/confianca/{min}', desc: 'Por confiança mínima', body: null },
       { method: 'POST', path: '/previsoes', desc: 'Criar previsão', body: { idarea_risco: 1, precipitacao_prevista: 25.0, confianca: 0.85 } },
-      { method: 'PUT', path: '/previsoes/{id}', desc: 'Atualizar previsão', body: {} },
+      { method: 'PATCH', path: '/previsoes/{id}', desc: 'Atualizar previsão', body: { confianca: 0.9 } },
       { method: 'DELETE', path: '/previsoes/{id}', desc: 'Apagar previsão', body: null },
-      // PLANOS
-      { method: 'GET', path: '/alertas-planos', desc: 'Listar planos', body: null },
-      { method: 'GET', path: '/alertas-planos/alerta/{id}', desc: 'Por alerta', body: null },
-      { method: 'GET', path: '/alertas-planos/plano/{id}', desc: 'Por plano', body: null },
-      { method: 'GET', path: '/alertas-planos/estado/{estado}', desc: 'Por estado', body: null },
-      { method: 'POST', path: '/alertas-planos', desc: 'Associar alerta-plano', body: { idalerta: 1, idplano_acao: 1, estado: 'ativo' } },
-      { method: 'PUT', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Atualizar', body: { estado: 'concluido' } },
-      { method: 'DELETE', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Remover', body: null },
+      // ALERTAS-PLANOS
+      { method: 'GET', path: '/alertas-planos', desc: 'Listar associações (?estado=ativo&idalerta=1)', body: null },
+      { method: 'GET', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Por IDs compostos', body: null },
+      { method: 'POST', path: '/alertas-planos', desc: 'Associar alerta-plano', body: { idalerta: 1, idplano_acao: 1, estado: 'ativo', responsavel: 'João' } },
+      { method: 'PATCH', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Atualizar associação', body: { estado: 'concluido' } },
+      { method: 'DELETE', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Remover associação', body: null },
+      // PLANOS DE AÇÃO
+      { method: 'GET', path: '/planos-acao', desc: 'Listar planos de ação', body: null },
+      { method: 'GET', path: '/planos-acao/{id}', desc: 'Plano por ID', body: null },
+      { method: 'POST', path: '/planos-acao', desc: 'Criar plano de ação', body: { descricao: 'Evacuação Zona A', tipo_destinatario: 'tecnico' } },
+      { method: 'PATCH', path: '/planos-acao/{id}', desc: 'Atualizar plano', body: { descricao: 'Nova descrição' } },
+      { method: 'DELETE', path: '/planos-acao/{id}', desc: 'Apagar plano', body: null },
       // DESTINATÁRIOS
       { method: 'GET', path: '/destinatarios', desc: 'Listar destinatários', body: null },
       { method: 'GET', path: '/destinatarios/{id}', desc: 'Destinatário por ID', body: null },
       { method: 'POST', path: '/destinatarios', desc: 'Criar destinatário', body: { nome: 'João Silva', email: 'joao@ex.pt', tipo: 'tecnico' } },
-      { method: 'PUT', path: '/destinatarios/{id}', desc: 'Atualizar', body: {} },
-      { method: 'DELETE', path: '/destinatarios/{id}', desc: 'Apagar', body: null },
+      { method: 'PATCH', path: '/destinatarios/{id}', desc: 'Atualizar destinatário', body: { contato: '+351912345678' } },
+      { method: 'DELETE', path: '/destinatarios/{id}', desc: 'Apagar destinatário', body: null },
       // NOTIFICAÇÕES
       { method: 'GET', path: '/notificacoes', desc: 'Listar notificações', body: null },
-      { method: 'GET', path: '/notificacoes/{id}', desc: 'Por ID', body: null },
-      { method: 'POST', path: '/notificacoes', desc: 'Criar notificação', body: { idalerta: 1, iddestinatario: 1, canal: 'email', estado: 'pendente' } },
-      { method: 'PUT', path: '/notificacoes/{id}', desc: 'Atualizar', body: {} },
-      { method: 'DELETE', path: '/notificacoes/{id}', desc: 'Apagar', body: null },
+      { method: 'GET', path: '/notificacoes/{id}', desc: 'Notificação por ID', body: null },
+      { method: 'POST', path: '/notificacoes', desc: 'Criar notificação', body: { idalerta: 1, iddestinatario: 1, canal: 'email', estado_envio: 'pendente' } },
+      { method: 'PATCH', path: '/notificacoes/{id}', desc: 'Atualizar notificação', body: { estado_envio: 'enviado' } },
+      { method: 'DELETE', path: '/notificacoes/{id}', desc: 'Apagar notificação', body: null },
     ];
 
     function renderEndpoints() {
