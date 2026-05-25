@@ -50,13 +50,14 @@ export const criarLeitura = async (req, res, next) => {
 
 
         // se ficou verde → resolve alerta existente
+        
         if (resultado.nivel === 1 && existente) {
             await existente.update({ estado: "resolvido" });
             return null;
         }
 
         if (existente) {
-            console.log("Alerta já existe → a atualizar");
+            console.log("Alerta já existe, a atualizar");
 
             await existente.update({
                 idnivel_alerta: resultado.nivel,

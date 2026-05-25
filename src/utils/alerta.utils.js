@@ -21,6 +21,7 @@ export async function verificarAlertas(leitura) {
     }
 
     const areaId = sensor.infraestrutura_urbana.idarea_risco;
+    console.log(`Área de risco associada ao sensor ${leitura.idsensor}:`, areaId);
     const infraestruturaId = sensor.idinfraestrutura_urbana;
 
 

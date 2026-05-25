@@ -1,9 +1,0 @@
-iddestinatario,tipo,nome,email,contato
-1,administrador,Administrador do Sistema,administrador@example.pt,+351910000001
-2,operador_municipal,Operador Municipal,operador.municipal@example.pt,+351910000002
-3,protecao_civil,Proteção Civil Municipal,protecao.civil@example.pt,+351910000003
-4,bombeiros,Bombeiros Voluntários,bombeiros@example.pt,+351910000004
-5,policia_municipal,Polícia Municipal,policia.municipal@example.pt,+351910000005
-6,gestao_infraestrutura,Gestão de Infraestrutura,gestao.infraestrutura@example.pt,+351910000006
-7,populacao_civil,População Civil - Zona de Risco,populacao.civil@example.pt,+351910000007
-8,hospital,Unidade Hospitalar Local,hospital@example.pt,+351910000008

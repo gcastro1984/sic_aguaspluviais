@@ -30,7 +30,7 @@ async function enviarLeitura(leitura) {
 // verifica se deu erro
   if (!response.ok) {
     const text = await response.text();
-    console.error("❌ ERRO BACKEND:", text);
+    console.error("ERRO BACKEND:", text);
     return null;
   }
 
@@ -45,7 +45,7 @@ async function main() {
     await enviarLeitura(limparLeitura(leitura));
   }
 
-  console.log("✅ Todas as leituras enviadas!");
+  console.log("Todas as leituras enviadas!");
 }
 
 main();

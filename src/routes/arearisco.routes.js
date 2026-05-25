@@ -22,7 +22,7 @@ router.get('/', obterAreasRisco);
 router.get('/:id', obterAreaRiscoPorId);
 
 // GET - Get areas by vulnerability level
-router.get('/vulnerabilidade/:nivel', obterAreasPorVulnerabilidade);
+router.get('/vulnerabilidade/:nivel', obterAreasPorVulnerabilidade); /////NOT 
 
 // PUT - Update an area de risco
 router.put('/:id', atualizarAreaRisco);
