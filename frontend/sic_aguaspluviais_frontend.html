@@ -1126,6 +1126,9 @@
       <span class="badge-count" id="sidebar-alert-count">—</span>
     </a>
     <a onclick="navigate('planos')" id="nav-planos">
+      <i class="fa fa-link"></i> Alerta ↔ Plano
+    </a>
+    <a onclick="navigate('planosauton')" id="nav-planosauton">
       <i class="fa fa-clipboard-list"></i> Planos de Ação
     </a>
 
@@ -1143,6 +1146,14 @@
     </a>
     <a onclick="navigate('notificacoes')" id="nav-notificacoes">
       <i class="fa fa-envelope"></i> Notificações
+    </a>
+
+    <div class="sidebar-section">Gestão</div>
+    <a onclick="navigate('relatorios')" id="nav-relatorios">
+      <i class="fa fa-file-lines"></i> Relatórios
+    </a>
+    <a onclick="navigate('utilizadores')" id="nav-utilizadores">
+      <i class="fa fa-user-gear"></i> Utilizadores
     </a>
 
     <div class="sidebar-section">Sistema</div>
@@ -1376,20 +1387,41 @@
         <div class="card-body">
           <div class="form-grid">
             <div class="form-group">
-              <label>ID do Sensor</label>
+              <label>ID do Sensor *</label>
               <input type="number" id="leitura-sensor-id" placeholder="Ex: 1" />
             </div>
             <div class="form-group">
-              <label>Precipitação (mm)</label>
-              <input type="number" step="0.01" id="leitura-precipitacao" placeholder="Ex: 12.5" />
+              <label>Tipo Variável *</label>
+              <select id="leitura-tipo">
+                <option value="precipitacao">Precipitação</option>
+                <option value="nivel_agua">Nível de Água</option>
+                <option value="caudal">Caudal</option>
+                <option value="temperatura">Temperatura</option>
+                <option value="humidade">Humidade</option>
+              </select>
             </div>
             <div class="form-group">
-              <label>Caudal (m³/s)</label>
-              <input type="number" step="0.001" id="leitura-caudal" placeholder="Ex: 0.450" />
+              <label>Valor *</label>
+              <input type="number" step="0.001" id="leitura-valor" placeholder="Ex: 12.5" />
             </div>
             <div class="form-group">
-              <label>Nível de Água (m)</label>
-              <input type="number" step="0.01" id="leitura-nivel" placeholder="Ex: 0.75" />
+              <label>Unidade *</label>
+              <input type="text" id="leitura-unidade" placeholder="Ex: mm" />
+            </div>
+            <div class="form-group">
+              <label>Data Observação *</label>
+              <input type="datetime-local" id="leitura-data-obs" />
+            </div>
+            <div class="form-group">
+              <label>Origem Dado</label>
+              <input type="text" id="leitura-origem" placeholder="Ex: sensor_fisico" />
+            </div>
+            <div class="form-group">
+              <label>Qualidade</label>
+              <select id="leitura-qualidade">
+                <option value="boa">Boa</option>
+                <option value="suspeita">Suspeita</option>
+              </select>
             </div>
           </div>
           <div class="form-actions">
@@ -1401,14 +1433,30 @@
       </div>
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Historial de Leituras (Endpoint: POST /leituras)</span>
-        </div>
-        <div class="card-body">
-          <div class="empty">
-            <i class="fa fa-wave-square"></i>
-            <p>Use o formulário acima para registar leituras.<br><span
-                style="font-family:var(--font-mono);font-size:.7rem">POST /leituras</span></p>
+          <span class="card-title">Historial de Leituras</span>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input type="number" id="filter-leitura-sensor" placeholder="Filtrar por ID sensor"
+              style="width:160px;padding:.25rem .6rem;font-size:.75rem" oninput="loadLeituras()" />
+            <button class="btn btn-sm btn-outline" onclick="loadLeituras()"><i class="fa fa-rotate"></i></button>
           </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Sensor</th>
+                <th>Tipo Variável</th>
+                <th>Valor</th>
+                <th>Unidade</th>
+                <th>Data Observação</th>
+                <th>Qualidade</th>
+              </tr>
+            </thead>
+            <tbody id="leituras-tbody">
+              <tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1438,11 +1486,11 @@
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Área Risco</th>
+                <th>Área</th>
+                <th>Fonte</th>
                 <th>Precipitação (mm)</th>
-                <th>Temperatura (°C)</th>
-                <th>Humidade (%)</th>
-                <th>Data/Hora</th>
+                <th>Horizonte (h)</th>
+                <th>Data Início</th>
                 <th>Confiança</th>
                 <th>Ações</th>
               </tr>
@@ -1555,6 +1603,39 @@
       </div>
     </div>
 
+    <!-- ── PLANOS DE AÇÃO (autónomos) ───────────────────── -->
+    <div class="section" id="section-planosauton">
+      <div class="page-header">
+        <div>
+          <div class="breadcrumb">SIC · <span>Planos de Ação</span></div>
+          <h2>Planos de Ação</h2>
+          <p>Gestão de planos de resposta a emergências</p>
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-outline" onclick="loadPlanosAuton()"><i class="fa fa-rotate"></i></button>
+          <button class="btn btn-primary" onclick="openModal('modal-novo-plano-auton')"><i class="fa fa-plus"></i> Novo Plano</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Planos Registados</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Descrição</th>
+                <th>Tipo Destinatário</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="planosauton-tbody">
+              <tr><td colspan="4"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ── ÁREAS DE RISCO ──────────────────────────────── -->
     <div class="section" id="section-areasrisco">
       <div class="page-header">
@@ -1575,10 +1656,11 @@
           <select id="filter-area-vuln" onchange="loadAreasRisco()"
             style="width:auto;padding:.25rem .6rem;font-size:.75rem">
             <option value="">Toda vulnerabilidade</option>
-            <option value="baixa">Baixa</option>
-            <option value="media">Média</option>
-            <option value="alta">Alta</option>
-            <option value="muito_alta">Muito Alta</option>
+            <option value="1">1 — Baixa</option>
+            <option value="2">2 — Média</option>
+            <option value="3">3 — Alta</option>
+            <option value="4">4 — Muito Alta</option>
+            <option value="5">5 — Crítica</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -1642,15 +1724,14 @@
                 <th>ID</th>
                 <th>Nome</th>
                 <th>Tipo</th>
+                <th>Localização</th>
                 <th>Área Risco</th>
-                <th>Capacidade (m³)</th>
-                <th>Estado</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody id="infra-tbody">
               <tr>
-                <td colspan="7">
+                <td colspan="6">
                   <div class="loading">
                     <div class="spinner"></div>A carregar...
                   </div>
@@ -1748,6 +1829,82 @@
       </div>
     </div>
 
+    <!-- ── RELATÓRIOS ───────────────────────────────────── -->
+    <div class="section" id="section-relatorios">
+      <div class="page-header">
+        <div>
+          <div class="breadcrumb">SIC · <span>Relatórios</span></div>
+          <h2>Relatórios</h2>
+          <p>Relatórios de ocorrências e incidentes</p>
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-outline" onclick="loadRelatorios()"><i class="fa fa-rotate"></i></button>
+          <button class="btn btn-primary" onclick="openModal('modal-novo-relatorio')"><i class="fa fa-plus"></i> Novo Relatório</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Relatórios Registados</span>
+          <div style="display:flex;gap:.5rem;align-items:center">
+            <input type="number" id="filter-rel-utilizador" placeholder="ID utilizador"
+              style="width:130px;padding:.25rem .6rem;font-size:.75rem" oninput="loadRelatorios()" />
+            <input type="number" id="filter-rel-alerta" placeholder="ID alerta"
+              style="width:110px;padding:.25rem .6rem;font-size:.75rem" oninput="loadRelatorios()" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Utilizador</th>
+                <th>Alerta</th>
+                <th>Descrição</th>
+                <th>Data</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="relatorios-tbody">
+              <tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── UTILIZADORES ──────────────────────────────────── -->
+    <div class="section" id="section-utilizadores">
+      <div class="page-header">
+        <div>
+          <div class="breadcrumb">SIC · <span>Utilizadores</span></div>
+          <h2>Utilizadores</h2>
+          <p>Gestão de contas de acesso ao sistema (requer administrador)</p>
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-outline" onclick="loadUtilizadores()"><i class="fa fa-rotate"></i></button>
+          <button class="btn btn-primary" onclick="openModal('modal-novo-utilizador')"><i class="fa fa-plus"></i> Novo Utilizador</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Lista de Utilizadores</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Email</th>
+                <th>Tipo / Papel</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="utilizadores-tbody">
+              <tr><td colspan="4"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ── ENDPOINTS EXPLORER ─────────────────────────── -->
     <div class="section" id="section-endpoints">
       <div class="page-header">
@@ -1831,16 +1988,37 @@
           <input type="number" id="m-leitura-sensor" placeholder="1" />
         </div>
         <div class="form-group">
-          <label>Precipitação (mm) *</label>
-          <input type="number" step="0.01" id="m-leitura-precip" placeholder="12.5" />
+          <label>Tipo Variável *</label>
+          <select id="m-leitura-tipo">
+            <option value="precipitacao">Precipitação</option>
+            <option value="nivel_agua">Nível de Água</option>
+            <option value="caudal">Caudal</option>
+            <option value="temperatura">Temperatura</option>
+            <option value="humidade">Humidade</option>
+          </select>
         </div>
         <div class="form-group">
-          <label>Caudal (m³/s)</label>
-          <input type="number" step="0.001" id="m-leitura-caudal" placeholder="0.450" />
+          <label>Valor *</label>
+          <input type="number" step="0.001" id="m-leitura-valor" placeholder="Ex: 12.5" />
         </div>
         <div class="form-group">
-          <label>Nível de Água (m)</label>
-          <input type="number" step="0.01" id="m-leitura-nivel" placeholder="0.75" />
+          <label>Unidade *</label>
+          <input type="text" id="m-leitura-unidade" placeholder="Ex: mm" />
+        </div>
+        <div class="form-group">
+          <label>Data Observação *</label>
+          <input type="datetime-local" id="m-leitura-data-obs" />
+        </div>
+        <div class="form-group">
+          <label>Origem Dado</label>
+          <input type="text" id="m-leitura-origem" placeholder="sensor_fisico" />
+        </div>
+        <div class="form-group">
+          <label>Qualidade</label>
+          <select id="m-leitura-qualidade">
+            <option value="boa">Boa</option>
+            <option value="suspeita">Suspeita</option>
+          </select>
         </div>
       </div>
       <div class="form-actions" style="margin-top:1rem">
@@ -1935,12 +2113,13 @@
           <input type="text" id="m-area-local" placeholder="Ex: Porto Norte" />
         </div>
         <div class="form-group">
-          <label>Nível Vulnerabilidade</label>
+          <label>Vulnerabilidade Base (1–5) *</label>
           <select id="m-area-vuln">
-            <option value="baixa">Baixa</option>
-            <option value="media">Média</option>
-            <option value="alta">Alta</option>
-            <option value="muito_alta">Muito Alta</option>
+            <option value="1">1 — Baixa</option>
+            <option value="2">2 — Média</option>
+            <option value="3">3 — Alta</option>
+            <option value="4">4 — Muito Alta</option>
+            <option value="5">5 — Crítica</option>
           </select>
         </div>
         <div class="form-group">
@@ -2011,24 +2190,28 @@
           <input type="number" id="m-prev-area" placeholder="Ex: 1" />
         </div>
         <div class="form-group">
+          <label>Fonte *</label>
+          <input type="text" id="m-prev-fonte" placeholder="Ex: IPMA" value="IPMA" />
+        </div>
+        <div class="form-group">
           <label>Precipitação Prevista (mm)</label>
           <input type="number" step="0.1" id="m-prev-precip" placeholder="25.0" />
         </div>
         <div class="form-group">
-          <label>Temperatura (°C)</label>
-          <input type="number" step="0.1" id="m-prev-temp" placeholder="18.5" />
-        </div>
-        <div class="form-group">
-          <label>Humidade (%)</label>
-          <input type="number" id="m-prev-humid" placeholder="75" />
-        </div>
-        <div class="form-group">
-          <label>Confiança (0-1)</label>
+          <label>Confiança (0–1) *</label>
           <input type="number" step="0.01" min="0" max="1" id="m-prev-conf" placeholder="0.85" />
         </div>
         <div class="form-group">
-          <label>Data/Hora Previsão</label>
-          <input type="datetime-local" id="m-prev-data" />
+          <label>Horizonte (horas) *</label>
+          <input type="number" id="m-prev-horizonte" placeholder="Ex: 24" />
+        </div>
+        <div class="form-group">
+          <label>Data Início Previsão *</label>
+          <input type="datetime-local" id="m-prev-inicio" />
+        </div>
+        <div class="form-group">
+          <label>Data Fim Previsão *</label>
+          <input type="datetime-local" id="m-prev-fim" />
         </div>
       </div>
       <div class="form-actions" style="margin-top:1rem">
@@ -2101,6 +2284,10 @@
           <input type="number" id="m-plano-id" placeholder="Ex: 1" />
         </div>
         <div class="form-group">
+          <label>Responsável *</label>
+          <input type="text" id="m-plano-resp" placeholder="Nome do responsável" />
+        </div>
+        <div class="form-group">
           <label>Estado</label>
           <select id="m-plano-estado">
             <option value="pendente">Pendente</option>
@@ -2119,6 +2306,98 @@
         <button class="btn btn-outline" onclick="closeModal('modal-novo-plano')">Cancelar</button>
       </div>
       <div class="api-response" id="modal-plano-resp"></div>
+    </div>
+  </div>
+
+  <!-- Novo Plano Autónomo -->
+  <div class="modal-backdrop" id="modal-novo-plano-auton">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Novo Plano de Ação</h3>
+        <button class="modal-close" onclick="closeModal('modal-novo-plano-auton')">✕</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Descrição *</label>
+          <textarea id="m-plauton-desc" placeholder="Descreva o plano de ação..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Tipo de Destinatário *</label>
+          <select id="m-plauton-tipo">
+            <option value="tecnico">Técnico</option>
+            <option value="responsavel">Responsável</option>
+            <option value="cidadao">Cidadão</option>
+            <option value="entidade">Entidade</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="criarPlanoAuton()"><i class="fa fa-check"></i> Criar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-novo-plano-auton')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-plauton-resp"></div>
+    </div>
+  </div>
+
+  <!-- Novo Relatório -->
+  <div class="modal-backdrop" id="modal-novo-relatorio">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Novo Relatório</h3>
+        <button class="modal-close" onclick="closeModal('modal-novo-relatorio')">✕</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Descrição *</label>
+          <textarea id="m-rel-desc" placeholder="Descreva a ocorrência..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>ID Utilizador *</label>
+          <input type="number" id="m-rel-utilizador" placeholder="Ex: 1" />
+        </div>
+        <div class="form-group">
+          <label>ID Alerta (opcional)</label>
+          <input type="number" id="m-rel-alerta" placeholder="Ex: 5" />
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="criarRelatorio()"><i class="fa fa-check"></i> Criar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-novo-relatorio')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-rel-resp"></div>
+    </div>
+  </div>
+
+  <!-- Novo Utilizador -->
+  <div class="modal-backdrop" id="modal-novo-utilizador">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Novo Utilizador</h3>
+        <button class="modal-close" onclick="closeModal('modal-novo-utilizador')">✕</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Email *</label>
+          <input type="email" id="m-util-email" placeholder="utilizador@exemplo.pt" />
+        </div>
+        <div class="form-group">
+          <label>Password *</label>
+          <input type="password" id="m-util-pass" placeholder="••••••••" />
+        </div>
+        <div class="form-group">
+          <label>Tipo / Papel *</label>
+          <select id="m-util-tipo">
+            <option value="administrador">Administrador</option>
+            <option value="operador_municipal">Operador Municipal</option>
+            <option value="analista_risco">Analista de Risco</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="criarUtilizador()"><i class="fa fa-check"></i> Criar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-novo-utilizador')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-util-resp"></div>
     </div>
   </div>
 
@@ -2145,20 +2424,12 @@
           </select>
         </div>
         <div class="form-group">
-          <label>ID Área de Risco</label>
+          <label>Localização *</label>
+          <input type="text" id="m-infra-local" placeholder="Ex: Rua da Boavista, nº 12" />
+        </div>
+        <div class="form-group">
+          <label>ID Área de Risco *</label>
           <input type="number" id="m-infra-area" placeholder="Ex: 1" />
-        </div>
-        <div class="form-group">
-          <label>Capacidade (m³)</label>
-          <input type="number" step="0.1" id="m-infra-cap" placeholder="Ex: 500" />
-        </div>
-        <div class="form-group">
-          <label>Estado</label>
-          <select id="m-infra-estado">
-            <option value="operacional">Operacional</option>
-            <option value="manutencao">Manutenção</option>
-            <option value="avariado">Avariado</option>
-          </select>
         </div>
       </div>
       <div class="form-actions" style="margin-top:1rem">
@@ -2184,16 +2455,20 @@
       currentSection = section;
 
       const loaders = {
-        sensores: loadSensores,
-        alertas: loadAlertas,
-        areasrisco: loadAreasRisco,
-        infraestruturas: loadInfraestruturas,
-        previsoes: loadPrevisoes,
-        destinatarios: loadDestinatarios,
-        notificacoes: loadNotificacoes,
-        planos: loadPlanos,
-        endpoints: renderEndpoints,
-        dashboard: loadDashboard,
+        sensores:       loadSensores,
+        leituras:       loadLeituras,
+        alertas:        loadAlertas,
+        areasrisco:     loadAreasRisco,
+        infraestruturas:loadInfraestruturas,
+        previsoes:      loadPrevisoes,
+        destinatarios:  loadDestinatarios,
+        notificacoes:   loadNotificacoes,
+        planos:         loadPlanos,
+        planosauton:    loadPlanosAuton,
+        relatorios:     loadRelatorios,
+        utilizadores:   loadUtilizadores,
+        endpoints:      renderEndpoints,
+        dashboard:      loadDashboard,
       };
       if (loaders[section]) loaders[section]();
     }
@@ -2248,8 +2523,10 @@
       return `<span class="badge badge-${cls}">${estado || '—'}</span>`;
     }
     function vulnBadge(v) {
-      const map = { baixa: 'success', media: 'info', alta: 'warning', muito_alta: 'danger' };
-      return `<span class="badge badge-${map[v] || 'muted'}">${v || '—'}</span>`;
+      const n = parseInt(v);
+      const labels = { 1: 'Baixa', 2: 'Média', 3: 'Alta', 4: 'Muito Alta', 5: 'Crítica' };
+      const cls    = { 1: 'success', 2: 'info', 3: 'warning', 4: 'danger', 5: 'danger' };
+      return `<span class="badge badge-${cls[n] || 'muted'}">${labels[n] || v || '—'}</span>`;
     }
     function actions(editFn, deleteFn) {
       return `<div style="display:flex;gap:.3rem">
@@ -2349,8 +2626,8 @@
       const ctx = document.getElementById('dash-chart');
       if (!ctx) return;
       const data = getList(r).slice(0, 10);
-      const labels = data.map((p, i) => fmtDate(p.data_hora_previsao || p.createdAt) || `P${i + 1}`);
-      const values = data.map(p => parseFloat(p.precipitacao_prevista || p.precipitacao || 0));
+      const labels = data.map((p, i) => fmtDate(p.data_inicio_previsao || p.createdAt) || `P${i + 1}`);
+      const values = data.map(p => parseFloat(p.precipitacao_prevista_mm || 0));
       if (dashChart) dashChart.destroy();
       dashChart = new Chart(ctx, {
         type: 'bar',
@@ -2388,13 +2665,19 @@
       if (!filtered.length) { tbody.innerHTML = emptyRow(7, 'Nenhum sensor encontrado.'); return; }
       tbody.innerHTML = filtered.map(s => `
     <tr>
-      <td class="td-mono">#${s.id || s.idsensor || '—'}</td>
+      <td class="td-mono">#${s.idsensor || '—'}</td>
       <td>${s.tipo || '—'}</td>
       <td>${s.localizacao || '—'}</td>
       <td>${estadoBadge(s.status)}</td>
-      <td>${s.infraUrb || s.idinfra_urbana || '—'}</td>
-      <td class="td-mono">${fmtDate(s.dataProxmanutencao || s.data_prox_manutencao)}</td>
-      <td>${actions(`updateSensorStatus(${s.id || s.idsensor})`, `deleteSensor(${s.id || s.idsensor})`)}</td>
+      <td class="td-mono">${s.idinfraestrutura_urbana || '—'}</td>
+      <td class="td-mono">${fmtDate(s.data_proxima_manutencao)}</td>
+      <td>
+        <div style="display:flex;gap:.3rem">
+          <button class="btn btn-sm btn-outline" onclick="calibrarSensor(${s.idsensor})" title="Calibração"><i class="fa fa-wrench"></i></button>
+          <button class="btn btn-sm btn-outline" onclick="updateSensorStatus(${s.idsensor})"><i class="fa fa-pen"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="deleteSensor(${s.idsensor})"><i class="fa fa-trash"></i></button>
+        </div>
+      </td>
     </tr>
   `).join('');
     }
@@ -2404,8 +2687,8 @@
         tipo: document.getElementById('m-sensor-tipo').value,
         localizacao: document.getElementById('m-sensor-loc').value,
         status: document.getElementById('m-sensor-status').value,
-        infraUrb: document.getElementById('m-sensor-infra').value,
-        dataProxmanutencao: document.getElementById('m-sensor-mant').value
+        idinfraestrutura_urbana: parseInt(document.getElementById('m-sensor-infra').value) || undefined,
+        data_proxima_manutencao: document.getElementById('m-sensor-mant').value || undefined
       };
       const r = await apiCall('POST', '/sensores', body);
       showResponse('modal-sensor-resp', r);
@@ -2430,25 +2713,55 @@
     // ─── LEITURAS ──────────────────────────────────────────
     async function criarLeitura() {
       const body = {
-        idsensor: parseInt(document.getElementById('leitura-sensor-id').value),
-        precipitacao: parseFloat(document.getElementById('leitura-precipitacao').value),
-        caudal: parseFloat(document.getElementById('leitura-caudal').value),
-        nivel_agua: parseFloat(document.getElementById('leitura-nivel').value),
+        idsensor:       parseInt(document.getElementById('leitura-sensor-id').value),
+        tipo_variavel:  document.getElementById('leitura-tipo').value,
+        valor:          parseFloat(document.getElementById('leitura-valor').value),
+        unidade:        document.getElementById('leitura-unidade').value,
+        data_observacao:document.getElementById('leitura-data-obs').value,
+        origem_dado:    document.getElementById('leitura-origem').value || undefined,
+        qualidade_dado: document.getElementById('leitura-qualidade').value,
       };
       const r = await apiCall('POST', '/leituras', body);
       showResponse('leitura-response', r);
+      if (r.ok) loadLeituras();
     }
 
     async function criarLeituraModal() {
       const body = {
-        idsensor: parseInt(document.getElementById('m-leitura-sensor').value),
-        precipitacao: parseFloat(document.getElementById('m-leitura-precip').value),
-        caudal: parseFloat(document.getElementById('m-leitura-caudal').value),
-        nivel_agua: parseFloat(document.getElementById('m-leitura-nivel').value),
+        idsensor:       parseInt(document.getElementById('m-leitura-sensor').value),
+        tipo_variavel:  document.getElementById('m-leitura-tipo').value,
+        valor:          parseFloat(document.getElementById('m-leitura-valor').value),
+        unidade:        document.getElementById('m-leitura-unidade').value,
+        data_observacao:document.getElementById('m-leitura-data-obs').value,
+        origem_dado:    document.getElementById('m-leitura-origem').value || undefined,
+        qualidade_dado: document.getElementById('m-leitura-qualidade').value,
       };
       const r = await apiCall('POST', '/leituras', body);
       showResponse('modal-leitura-resp', r);
-      if (r.ok) setTimeout(() => closeModal('modal-nova-leitura'), 1500);
+      if (r.ok) { setTimeout(() => closeModal('modal-nova-leitura'), 1200); loadLeituras(); }
+    }
+
+    async function loadLeituras() {
+      const tbody = document.getElementById('leituras-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      const idsensor = document.getElementById('filter-leitura-sensor')?.value;
+      const path = idsensor ? `/leituras?idsensor=${idsensor}` : '/leituras';
+      const r = await apiCall('GET', path);
+      if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
+      if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma leitura encontrada.'); return; }
+      tbody.innerHTML = list.map(l => `
+        <tr>
+          <td class="td-mono">#${l.idleitura_sensor || '—'}</td>
+          <td class="td-mono">#${l.idsensor || '—'}</td>
+          <td>${l.tipo_variavel || '—'}</td>
+          <td class="td-mono">${l.valor ?? '—'}</td>
+          <td>${l.unidade || '—'}</td>
+          <td class="td-mono">${fmtDate(l.data_observacao)}</td>
+          <td>${estadoBadge(l.qualidade_dado || 'boa')}</td>
+        </tr>
+      `).join('');
     }
 
     // ─── ALERTAS ───────────────────────────────────────────
@@ -2458,15 +2771,8 @@
       const estado = document.getElementById('filter-alerta-estado').value;
       const path = estado ? `/alertas?estado=${estado}` : '/alertas';
       const r = await apiCall('GET', path);
-      if (!r.ok) { tbody.innerHTML = errRow(8, 'Erro: ' + (r.data.message || r.status)); return; }
-      
-const list = Array.isArray(r.data)
-  ? r.data
-  : Array.isArray(r.data.data)
-    ? r.data.data
-    : []
-
-
+      if (!r.ok) { tbody.innerHTML = errRow(8, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
       const cnt = document.getElementById('alertas-count');
       if (cnt) cnt.textContent = `(${list.length})`;
       if (!list.length) { tbody.innerHTML = emptyRow(8, 'Nenhum alerta encontrado.'); return; }
@@ -2528,7 +2834,7 @@ const list = Array.isArray(r.data)
       <td class="td-mono">#${a.idarea_risco || a.id || '—'}</td>
       <td>${a.nome || '—'}</td>
       <td>${a.localizacao || '—'}</td>
-      <td>${vulnBadge(a.nivel_vulnerabilidade || a.vulnerabilidade)}</td>
+      <td>${vulnBadge(a.vulnerabilidade_base)}</td>
       <td class="td-mono">${a.area_m2 || '—'}</td>
       <td class="td-mono">${a.populacao_afetada || '—'}</td>
       <td>${actions(`editAreaRisco(${a.idarea_risco || a.id})`, `apagarAreaRisco(${a.idarea_risco || a.id})`)}</td>
@@ -2540,7 +2846,7 @@ const list = Array.isArray(r.data)
       const body = {
         nome: document.getElementById('m-area-nome').value,
         localizacao: document.getElementById('m-area-local').value,
-        nivel_vulnerabilidade: document.getElementById('m-area-vuln').value,
+        vulnerabilidade_base: parseInt(document.getElementById('m-area-vuln').value),
         area_m2: parseFloat(document.getElementById('m-area-m2').value) || undefined,
         populacao_afetada: parseInt(document.getElementById('m-area-pop').value) || undefined,
       };
@@ -2550,9 +2856,11 @@ const list = Array.isArray(r.data)
     }
 
     async function editAreaRisco(id) {
-      const vuln = prompt('Nova vulnerabilidade (baixa / media / alta / muito_alta):');
+      const vuln = prompt('Nova vulnerabilidade base (1=Baixa, 2=Média, 3=Alta, 4=Muito Alta, 5=Crítica):');
       if (!vuln) return;
-      const r = await apiCall('PATCH', `/areas-risco/${id}`, { nivel_vulnerabilidade: vuln });
+      const nivel = parseInt(vuln);
+      if (isNaN(nivel) || nivel < 1 || nivel > 5) { alert('Valor inválido. Use um número de 1 a 5.'); return; }
+      const r = await apiCall('PATCH', `/areas-risco/${id}`, { vulnerabilidade_base: nivel });
       alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
       loadAreasRisco();
     }
@@ -2567,33 +2875,31 @@ const list = Array.isArray(r.data)
     // ─── INFRAESTRUTURAS ───────────────────────────────────
     async function loadInfraestruturas() {
       const tbody = document.getElementById('infra-tbody');
-      tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const tipo = document.getElementById('filter-infra-tipo').value;
       const path = tipo ? `/infraestruturas?tipo=${tipo}` : '/infraestruturas';
       const r = await apiCall('GET', path);
-      if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
+      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.error_description || r.status)); return; }
       const list = getList(r);
-      if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma infraestrutura encontrada.'); return; }
+      if (!list.length) { tbody.innerHTML = emptyRow(6, 'Nenhuma infraestrutura encontrada.'); return; }
       tbody.innerHTML = list.map(i => `
     <tr>
-      <td class="td-mono">#${i.idinfra_urbana || i.id || '—'}</td>
+      <td class="td-mono">#${i.idinfraestrutura_urbana || '—'}</td>
       <td>${i.nome || '—'}</td>
       <td>${i.tipo || '—'}</td>
+      <td>${i.localizacao || '—'}</td>
       <td>${i.idarea_risco || '—'}</td>
-      <td class="td-mono">${i.capacidade_m3 || '—'}</td>
-      <td>${estadoBadge(i.estado)}</td>
-      <td>${actions(`editInfra(${i.idinfra_urbana || i.id})`, `apagarInfra(${i.idinfra_urbana || i.id})`)}</td>
+      <td>${actions(`editInfra(${i.idinfraestrutura_urbana})`, `apagarInfra(${i.idinfraestrutura_urbana})`)}</td>
     </tr>
   `).join('');
     }
 
     async function criarInfraestrutura() {
       const body = {
-        nome: document.getElementById('m-infra-nome').value,
-        tipo: document.getElementById('m-infra-tipo').value,
-        idarea_risco: parseInt(document.getElementById('m-infra-area').value) || undefined,
-        capacidade_m3: parseFloat(document.getElementById('m-infra-cap').value) || undefined,
-        estado: document.getElementById('m-infra-estado').value,
+        nome:        document.getElementById('m-infra-nome').value,
+        tipo:        document.getElementById('m-infra-tipo').value,
+        localizacao: document.getElementById('m-infra-local').value,
+        idarea_risco:parseInt(document.getElementById('m-infra-area').value) || undefined,
       };
       const r = await apiCall('POST', '/infraestruturas', body);
       showResponse('modal-infra-resp', r);
@@ -2601,9 +2907,9 @@ const list = Array.isArray(r.data)
     }
 
     async function editInfra(id) {
-      const estado = prompt('Novo estado (operacional / manutencao / avariado):');
-      if (!estado) return;
-      const r = await apiCall('PATCH', `/infraestruturas/${id}`, { estado });
+      const loc = prompt('Nova localização:');
+      if (!loc) return;
+      const r = await apiCall('PATCH', `/infraestruturas/${id}`, { localizacao: loc });
       alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
       loadInfraestruturas();
     }
@@ -2627,26 +2933,27 @@ const list = Array.isArray(r.data)
       if (!list.length) { tbody.innerHTML = emptyRow(8, 'Nenhuma previsão encontrada.'); return; }
       tbody.innerHTML = list.map(p => `
     <tr>
-      <td class="td-mono">#${p.idprevisao || p.id || '—'}</td>
+      <td class="td-mono">#${p.idprevisao || '—'}</td>
       <td>${p.idarea_risco || '—'}</td>
-      <td class="td-mono">${p.precipitacao_prevista ?? p.precipitacao ?? '—'}</td>
-      <td class="td-mono">${p.temperatura ?? '—'}</td>
-      <td class="td-mono">${p.humidade ?? '—'}</td>
-      <td class="td-mono">${fmtDate(p.data_hora_previsao || p.createdAt)}</td>
+      <td>${p.fonte || '—'}</td>
+      <td class="td-mono">${p.precipitacao_prevista_mm ?? '—'}</td>
+      <td class="td-mono">${p.horizonte_horas ?? '—'}</td>
+      <td class="td-mono">${fmtDate(p.data_inicio_previsao)}</td>
       <td><div class="progress" style="width:80px"><div class="progress-bar" style="width:${((p.confianca || 0) * 100).toFixed(0)}%;background:var(--accent)"></div></div> <span style="font-family:var(--font-mono);font-size:.65rem">${((p.confianca || 0) * 100).toFixed(0)}%</span></td>
-      <td>${actions(`''`, `apagarPrevisao(${p.idprevisao || p.id})`)}</td>
+      <td>${actions(`''`, `apagarPrevisao(${p.idprevisao})`)}</td>
     </tr>
   `).join('');
     }
 
     async function criarPrevisao() {
       const body = {
-        idarea_risco: parseInt(document.getElementById('m-prev-area').value),
-        precipitacao_prevista: parseFloat(document.getElementById('m-prev-precip').value) || undefined,
-        temperatura: parseFloat(document.getElementById('m-prev-temp').value) || undefined,
-        humidade: parseInt(document.getElementById('m-prev-humid').value) || undefined,
-        confianca: parseFloat(document.getElementById('m-prev-conf').value) || undefined,
-        data_hora_previsao: document.getElementById('m-prev-data').value || undefined,
+        idarea_risco:          parseInt(document.getElementById('m-prev-area').value),
+        fonte:                 document.getElementById('m-prev-fonte').value || 'IPMA',
+        precipitacao_prevista_mm: parseFloat(document.getElementById('m-prev-precip').value),
+        confianca:             parseFloat(document.getElementById('m-prev-conf').value),
+        horizonte_horas:       parseInt(document.getElementById('m-prev-horizonte').value),
+        data_inicio_previsao:  document.getElementById('m-prev-inicio').value || undefined,
+        data_fim_previsao:     document.getElementById('m-prev-fim').value || undefined,
       };
       const r = await apiCall('POST', '/previsoes', body);
       showResponse('modal-prev-resp', r);
@@ -2714,7 +3021,7 @@ const list = Array.isArray(r.data)
       <td>#${n.idalerta || '—'}</td>
       <td>#${n.iddestinatario || '—'}</td>
       <td>${n.canal || '—'}</td>
-      <td>${estadoBadge(n.estado)}</td>
+      <td>${estadoBadge(n.estado_envio)}</td>
       <td class="td-mono">${fmtDate(n.data_envio || n.createdAt)}</td>
       <td>${actions(`''`, `apagarNotificacao(${n.idnotificacao || n.id})`)}</td>
     </tr>
@@ -2745,22 +3052,16 @@ const list = Array.isArray(r.data)
     async function loadPlanos() {
       const tbody = document.getElementById('planos-tbody');
       tbody.innerHTML = `<tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
-      const r = await apiCall('GET', '/planos-acao');
-      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.message || r.status)); return; }
-      
-const list = Array.isArray(r.data)
-  ? r.data
-  : Array.isArray(r.data.data)
-    ? r.data.data
-    : []
-
+      const r = await apiCall('GET', '/alertas-planos');
+      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(6, 'Sem planos associados.'); return; }
       tbody.innerHTML = list.map(p => `
     <tr>
       <td class="td-mono">#${p.idalerta || '—'}</td>
       <td class="td-mono">#${p.idplano_acao || '—'}</td>
       <td>${estadoBadge(p.estado)}</td>
-      <td class="td-mono">${fmtDate(p.data_ativacao || p.createdAt)}</td>
+      <td class="td-mono">${fmtDate(p.data_inicio || p.createdAt)}</td>
       <td>${p.observacoes || '—'}</td>
       <td><button class="btn btn-sm btn-danger" onclick="apagarPlano(${p.idalerta},${p.idplano_acao})"><i class="fa fa-trash"></i></button></td>
     </tr>
@@ -2769,10 +3070,11 @@ const list = Array.isArray(r.data)
 
     async function criarPlano() {
       const body = {
-        idalerta: parseInt(document.getElementById('m-plano-alerta').value),
-        idplano_acao: parseInt(document.getElementById('m-plano-id').value),
-        estado: document.getElementById('m-plano-estado').value,
-        observacoes: document.getElementById('m-plano-obs').value,
+        idalerta:    parseInt(document.getElementById('m-plano-alerta').value),
+        idplano_acao:parseInt(document.getElementById('m-plano-id').value),
+        responsavel: document.getElementById('m-plano-resp').value,
+        estado:      document.getElementById('m-plano-estado').value,
+        observacoes: document.getElementById('m-plano-obs').value || undefined,
       };
       const r = await apiCall('POST', '/alertas-planos', body);
       showResponse('modal-plano-resp', r);
@@ -2784,6 +3086,157 @@ const list = Array.isArray(r.data)
       const r = await apiCall('DELETE', `/alertas-planos/${idAlerta}/${idPlano}`);
       alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
       loadPlanos();
+    }
+
+    // ─── CALIBRAÇÃO ────────────────────────────────────────
+    async function calibrarSensor(id) {
+      const dataProx = prompt('Data próxima manutenção (YYYY-MM-DD, opcional):');
+      const obs      = prompt('Observações (opcional):');
+      const body = { canal: 'email' };
+      if (dataProx) body.data_proxima_manutencao = dataProx;
+      if (obs)      body.observacoes = obs;
+      const r = await apiCall('POST', `/sensores/${id}/calibracao`, body);
+      alert(r.ok ? 'Calibração registada! Notificação enviada.' : 'Erro: ' + (r.data.error_description || JSON.stringify(r.data)));
+      loadSensores();
+    }
+
+    // ─── PLANOS DE AÇÃO (autónomos) ────────────────────────
+    async function loadPlanosAuton() {
+      const tbody = document.getElementById('planosauton-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="4"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      const r = await apiCall('GET', '/planos-acao');
+      if (!r.ok) { tbody.innerHTML = errRow(4, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
+      if (!list.length) { tbody.innerHTML = emptyRow(4, 'Nenhum plano registado.'); return; }
+      tbody.innerHTML = list.map(p => `
+        <tr>
+          <td class="td-mono">#${p.idplano_acao || '—'}</td>
+          <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.descricao || ''}">${p.descricao || '—'}</td>
+          <td>${p.tipo_destinatario || '—'}</td>
+          <td>${actions(`editPlanoAuton(${p.idplano_acao})`, `apagarPlanoAuton(${p.idplano_acao})`)}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function criarPlanoAuton() {
+      const body = {
+        descricao:        document.getElementById('m-plauton-desc').value,
+        tipo_destinatario:document.getElementById('m-plauton-tipo').value,
+      };
+      const r = await apiCall('POST', '/planos-acao', body);
+      showResponse('modal-plauton-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-novo-plano-auton'), 1200); loadPlanosAuton(); }
+    }
+
+    async function editPlanoAuton(id) {
+      const desc = prompt('Nova descrição:');
+      if (!desc) return;
+      const r = await apiCall('PATCH', `/planos-acao/${id}`, { descricao: desc });
+      alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
+      loadPlanosAuton();
+    }
+
+    async function apagarPlanoAuton(id) {
+      if (!confirm(`Apagar plano de ação #${id}?`)) return;
+      const r = await apiCall('DELETE', `/planos-acao/${id}`);
+      alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
+      loadPlanosAuton();
+    }
+
+    // ─── RELATÓRIOS ────────────────────────────────────────
+    async function loadRelatorios() {
+      const tbody = document.getElementById('relatorios-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      const idutil  = document.getElementById('filter-rel-utilizador')?.value;
+      const idalert = document.getElementById('filter-rel-alerta')?.value;
+      const params  = [];
+      if (idutil)  params.push(`idutilizador=${idutil}`);
+      if (idalert) params.push(`idalerta=${idalert}`);
+      const path = '/relatorios' + (params.length ? '?' + params.join('&') : '');
+      const r = await apiCall('GET', path);
+      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
+      if (!list.length) { tbody.innerHTML = emptyRow(6, 'Nenhum relatório encontrado.'); return; }
+      tbody.innerHTML = list.map(rel => `
+        <tr>
+          <td class="td-mono">#${rel.idrelatorio || '—'}</td>
+          <td class="td-mono">${rel.Utilizador?.email || rel.idutilizador || '—'}</td>
+          <td class="td-mono">${rel.idalerta ? '#' + rel.idalerta : '—'}</td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${rel.descricao || ''}">${rel.descricao || '—'}</td>
+          <td class="td-mono">${fmtDate(rel.createdAt)}</td>
+          <td>${actions(`editRelatorio(${rel.idrelatorio})`, `apagarRelatorio(${rel.idrelatorio})`)}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function criarRelatorio() {
+      const idalerta = parseInt(document.getElementById('m-rel-alerta').value);
+      const body = {
+        descricao:    document.getElementById('m-rel-desc').value,
+        idutilizador: parseInt(document.getElementById('m-rel-utilizador').value),
+        idalerta:     idalerta || undefined,
+      };
+      const r = await apiCall('POST', '/relatorios', body);
+      showResponse('modal-rel-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-novo-relatorio'), 1200); loadRelatorios(); }
+    }
+
+    async function editRelatorio(id) {
+      const desc = prompt('Nova descrição:');
+      if (!desc) return;
+      const r = await apiCall('PATCH', `/relatorios/${id}`, { descricao: desc });
+      alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
+      loadRelatorios();
+    }
+
+    async function apagarRelatorio(id) {
+      if (!confirm(`Apagar relatório #${id}?`)) return;
+      const r = await apiCall('DELETE', `/relatorios/${id}`);
+      alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
+      loadRelatorios();
+    }
+
+    // ─── UTILIZADORES ──────────────────────────────────────
+    async function loadUtilizadores() {
+      const tbody = document.getElementById('utilizadores-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="4"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      const r = await apiCall('GET', '/utilizadores');
+      if (!r.ok) { tbody.innerHTML = errRow(4, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
+      if (!list.length) { tbody.innerHTML = emptyRow(4, 'Nenhum utilizador encontrado.'); return; }
+      tbody.innerHTML = list.map(u => `
+        <tr>
+          <td class="td-mono">#${u.idutilizador || '—'}</td>
+          <td>${u.email || '—'}</td>
+          <td>${u.tipo || '—'}</td>
+          <td>
+            <div style="display:flex;gap:.3rem">
+              <button class="btn btn-sm btn-danger" onclick="apagarUtilizador(${u.idutilizador})"><i class="fa fa-trash"></i></button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function criarUtilizador() {
+      const body = {
+        email:    document.getElementById('m-util-email').value,
+        password: document.getElementById('m-util-pass').value,
+        tipo:     document.getElementById('m-util-tipo').value,
+      };
+      const r = await apiCall('POST', '/utilizadores', body);
+      showResponse('modal-util-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-novo-utilizador'), 1200); loadUtilizadores(); }
+    }
+
+    async function apagarUtilizador(id) {
+      if (!confirm(`Apagar utilizador #${id}? Esta acção é irreversível.`)) return;
+      const r = await apiCall('DELETE', `/utilizadores/${id}`);
+      alert(r.ok ? 'Utilizador apagado!' : 'Erro: ' + JSON.stringify(r.data));
+      loadUtilizadores();
     }
 
     // ─── LOGIN ─────────────────────────────────────────────

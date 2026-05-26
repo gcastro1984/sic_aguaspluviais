@@ -13,6 +13,8 @@ import alertaPlanoAcaoRoutes from './src/routes/alerta_plano_acao.routes.js';
 import planoAcaoRoutes from './src/routes/plano_acao.routes.js';
 import destinatariosRoutes from './src/routes/destinatarios.routes.js';
 import notificacaoRoutes from './src/routes/notificacao.routes.js';
+import relatorioRoutes from './src/routes/relatorio.routes.js';
+import planoAlertaRoutes from './src/routes/plano_alerta.routes.js';
 
 const app = express();
 const host = process.env.HOST || 'localhost';
@@ -36,12 +38,15 @@ app.use('/alertas-planos', alertaPlanoAcaoRoutes);
 app.use('/planos-acao', planoAcaoRoutes);
 app.use('/destinatarios', destinatariosRoutes);
 app.use('/notificacoes', notificacaoRoutes);
+app.use('/relatorios', relatorioRoutes);
+app.use('/planos-alerta', planoAlertaRoutes);
 
-// erro global
+// erro global — formato: { error, error_description, errors? }
 app.use((err, req, res, next) => {
     const status = err.status || 500;
     const payload = {
-        error: err.message || 'Internal Server Error'
+        error:             err.code    || 'internal_error',
+        error_description: err.message || 'Internal Server Error'
     };
 
     if (err.errors) {

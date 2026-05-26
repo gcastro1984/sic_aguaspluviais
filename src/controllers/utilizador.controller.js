@@ -2,7 +2,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Utilizador } from '../models/db.config.js';
 import { genericError } from '../utils/error.utils.js';
-import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
 
 const userLinks = (id) => ({
     self:   { href: `/utilizadores/${id}`,  method: 'GET' },
@@ -17,6 +16,13 @@ export const criarUtilizador = async (req, res, next) => {
         if (!email || !password || !tipo)
             return res.status(400).json({ error: 'invalid_request', error_description: 'email, password and tipo are mandatory.' });
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email))
+            return res.status(400).json({ error: 'validation_error', error_description: 'Formato de email inválido.' });
+
+        if (password.length < 8)
+            return res.status(400).json({ error: 'validation_error', error_description: 'A password deve ter pelo menos 8 caracteres.' });
+
         const tiposValidos = ['administrador', 'operador_municipal', 'analista_risco'];
         if (!tiposValidos.includes(tipo))
             return res.status(400).json({ error: 'invalid_tipo', error_description: `tipo must be one of: ${tiposValidos.join(', ')}` });
@@ -25,9 +31,7 @@ export const criarUtilizador = async (req, res, next) => {
         const utilizador = await Utilizador.create({ email, password_hash, tipo });
 
         return res.status(201).json({
-            message: 'User created successfully.',
-            data: { idutilizador: utilizador.idutilizador, email: utilizador.email, tipo: utilizador.tipo },
-            links: { ...userLinks(utilizador.idutilizador), allUtilizadores: { href: '/utilizadores', method: 'GET' } }
+            _self: `/utilizadores/${utilizador.idutilizador}`
         });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError')
@@ -77,8 +81,8 @@ export const obterUtilizador = async (req, res, next) => {
         if (!user) return res.status(404).json({ error: 'not_found', error_description: 'User not found.' });
 
         return res.status(200).json({
-            data: user,
-            links: { ...userLinks(req.params.id), allUtilizadores: { href: '/utilizadores', method: 'GET' } }
+            ...user.toJSON(),
+            _links: { ...userLinks(req.params.id), allUtilizadores: { href: '/utilizadores', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -88,7 +92,15 @@ export const obterUtilizador = async (req, res, next) => {
 // GET /utilizadores  – apenas admin
 export const obterUtilizadores = async (req, res, next) => {
     try {
-        const { page, limit, offset } = getPagination(req.query);
+        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        let offset, page;
+        if (req.query.offset !== undefined) {
+            offset = Math.max(0, parseInt(req.query.offset) || 0);
+            page   = Math.floor(offset / limit) + 1;
+        } else {
+            page   = Math.max(1, parseInt(req.query.page) || 1);
+            offset = (page - 1) * limit;
+        }
 
         const { count, rows } = await Utilizador.findAndCountAll({
             attributes: ['idutilizador', 'email', 'tipo'],
@@ -96,12 +108,13 @@ export const obterUtilizadores = async (req, res, next) => {
             offset
         });
 
-        const data = rows.map(u => ({ ...u.toJSON(), links: userLinks(u.idutilizador) }));
+        const data  = rows.map(u => ({ ...u.toJSON(), _links: userLinks(u.idutilizador) }));
+        const pages = Math.ceil(count / limit);
 
-        return res.status(200).json({
+        return res.status(count > limit ? 206 : 200).json({
             data,
-            pagination: paginationMeta(count, page, limit),
-            links: { self: { href: '/utilizadores', method: 'GET' }, create: { href: '/utilizadores', method: 'POST' } }
+            pagination: { total: count, page, limit, pages },
+            _links: { self: { href: '/utilizadores', method: 'GET' }, create: { href: '/utilizadores', method: 'POST' } }
         });
     } catch (error) {
         return next(genericError(error.message));

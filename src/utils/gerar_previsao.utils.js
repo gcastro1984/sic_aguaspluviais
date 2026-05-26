@@ -9,44 +9,37 @@ const data = generateData({
 const previsoes = data.previsao_meteorologica || data.previsao || [];
 console.log(`Geradas ${previsoes.length} previsões meteorológicas.`);
 
-
 // remover ID automático e campos de registo
 function limparPrevisao(previsao) {
 	const { idprevisao, data_emissao, ...resto } = previsao;
 	return resto;
 }
 
-
 // enviar para API
 async function enviarPrevisao(previsao) {
 	const response = await fetch("http://localhost:3001/previsoes", {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json"
-		},
+		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(previsao)
 	});
-  
-	// verifica se deu erro
+
 	if (!response.ok) {
 		const text = await response.text();
 		console.error("❌ ERRO BACKEND:", text);
 		return null;
 	}
 
-
 	return response.json();
 }
 
-
 // execução
 async function main() {
+	let ok = 0, erro = 0;
 	for (const previsao of previsoes) {
-		await enviarPrevisao(limparPrevisao(previsao));
+		const resultado = await enviarPrevisao(limparPrevisao(previsao));
+		if (resultado) ok++; else erro++;
 	}
-
-	console.log("✅ Todas as previsões enviadas!");
+	console.log(`✅ Previsões enviadas: ${ok} | ❌ Erros: ${erro}`);
 }
 
 main();
-

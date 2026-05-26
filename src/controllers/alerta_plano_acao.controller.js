@@ -1,6 +1,5 @@
 import { AlertaPlanoAcao, Alerta, PlanoAcao } from '../models/db.config.js';
 import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
-import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
 
 const apaLinks = (idalerta, idplano) => ({
     self:   { href: `/alertas-planos/${idalerta}/${idplano}`,  method: 'GET' },
@@ -21,6 +20,9 @@ export const criarAlertaPlanoAcao = async (req, res, next) => {
         const planoAcao = await PlanoAcao.findByPk(idplano_acao);
         if (!planoAcao) return next(notFoundError('plano_acao', idplano_acao));
 
+        if (data_inicio && data_conclusao && new Date(data_conclusao) < new Date(data_inicio))
+            return next(validationError({ data_conclusao: 'data_conclusao não pode ser anterior a data_inicio' }));
+
         const alertaPlanoAcao = await AlertaPlanoAcao.create({
             idalerta, idplano_acao, estado, responsavel,
             data_inicio: data_inicio || null,
@@ -29,9 +31,7 @@ export const criarAlertaPlanoAcao = async (req, res, next) => {
         });
 
         return res.status(201).json({
-            message: 'Alerta Plano Ação criado com sucesso',
-            data: alertaPlanoAcao,
-            links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
+            _self: `/alertas-planos/${idalerta}/${idplano_acao}`
         });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError')
@@ -44,7 +44,15 @@ export const criarAlertaPlanoAcao = async (req, res, next) => {
 export const obterAlertasPlanos = async (req, res, next) => {
     try {
         const { estado, idalerta, idplano_acao } = req.query;
-        const { page, limit, offset } = getPagination(req.query);
+        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        let offset, page;
+        if (req.query.offset !== undefined) {
+            offset = Math.max(0, parseInt(req.query.offset) || 0);
+            page   = Math.floor(offset / limit) + 1;
+        } else {
+            page   = Math.max(1, parseInt(req.query.page) || 1);
+            offset = (page - 1) * limit;
+        }
 
         const where = {};
         if (estado) where.estado = estado;
@@ -61,12 +69,13 @@ export const obterAlertasPlanos = async (req, res, next) => {
             offset
         });
 
-        const data = rows.map(r => ({ ...r.toJSON(), links: apaLinks(r.idalerta, r.idplano_acao) }));
+        const data  = rows.map(r => ({ ...r.toJSON(), _links: apaLinks(r.idalerta, r.idplano_acao) }));
+        const pages = Math.ceil(count / limit);
 
-        return res.status(200).json({
+        return res.status(count > limit ? 206 : 200).json({
             data,
-            pagination: paginationMeta(count, page, limit),
-            links: { self: { href: '/alertas-planos', method: 'GET' }, create: { href: '/alertas-planos', method: 'POST' } }
+            pagination: { total: count, page, limit, pages },
+            _links: { self: { href: '/alertas-planos', method: 'GET' }, create: { href: '/alertas-planos', method: 'POST' } }
         });
     } catch (error) {
         return next(genericError('Erro ao obter alertas planos ação'));
@@ -88,8 +97,8 @@ export const obterAlertaPlanoAcaoPorIds = async (req, res, next) => {
         if (!apa) return next(notFoundError('alerta_plano_acao', `${idalerta}/${idplano_acao}`));
 
         return res.status(200).json({
-            data: apa,
-            links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
+            ...apa.toJSON(),
+            _links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError('Erro ao obter alerta plano ação'));
@@ -104,6 +113,13 @@ export const atualizarAlertaPlanoAcao = async (req, res, next) => {
         const apa = await AlertaPlanoAcao.findOne({ where: { idalerta, idplano_acao } });
         if (!apa) return next(notFoundError('alerta_plano_acao', `${idalerta}/${idplano_acao}`));
 
+        const estadosValidos = ['pendente', 'ativo', 'concluido', 'cancelado'];
+        if (estado !== undefined && !estadosValidos.includes(estado))
+            return next(validationError({ estado: `Estado inválido. Use: ${estadosValidos.join(', ')}` }));
+
+        if (data_inicio && data_conclusao && new Date(data_conclusao) < new Date(data_inicio))
+            return next(validationError({ data_conclusao: 'data_conclusao não pode ser anterior a data_inicio' }));
+
         const updateData = {};
         if (estado !== undefined) updateData.estado = estado;
         if (responsavel !== undefined) updateData.responsavel = responsavel;
@@ -115,8 +131,8 @@ export const atualizarAlertaPlanoAcao = async (req, res, next) => {
 
         return res.status(200).json({
             message: 'Alerta Plano Ação atualizado com sucesso',
-            data: apa,
-            links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
+            ...apa.toJSON(),
+            _links: { ...apaLinks(idalerta, idplano_acao), allAlertasPlanos: { href: '/alertas-planos', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError('Erro ao atualizar alerta plano ação'));

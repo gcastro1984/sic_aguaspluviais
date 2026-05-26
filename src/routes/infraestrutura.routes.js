@@ -1,5 +1,5 @@
 import express from 'express';
-import { criarInfraestruturaUrbana, obterInfraestruturas, obterInfraestruturaUrbanaId, atualizarInfraestruturaUrbana, deletarInfraestruturaUrbana } from '../controllers/infraestrutura.controller.js';
+import { criarInfraestruturaUrbana, obterInfraestruturas, obterInfraestruturaUrbanaId, substituirInfraestruturaUrbana, atualizarInfraestruturaUrbana, deletarInfraestruturaUrbana } from '../controllers/infraestrutura.controller.js';
 import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -10,6 +10,7 @@ const writeRoles = requireRole('administrador', 'operador_municipal');
 router.get('/',    obterInfraestruturas);
 router.get('/:id', obterInfraestruturaUrbanaId);
 router.post('/',   verifyToken, writeRoles, criarInfraestruturaUrbana);
+router.put('/:id',   verifyToken, writeRoles, substituirInfraestruturaUrbana);
 router.patch('/:id', verifyToken, writeRoles, atualizarInfraestruturaUrbana);
 router.delete('/:id', verifyToken, writeRoles, deletarInfraestruturaUrbana);
 

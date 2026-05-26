@@ -10,6 +10,7 @@ const calibracaoRole = requireRole('administrador', 'operador_municipal'); // op
 router.get('/',    SensoresController.getAllSensors);
 router.get('/:id', SensoresController.getSensorById);
 router.post('/',   verifyToken, writeRoles, SensoresController.createNewSensor);
+router.put('/:id',   verifyToken, writeRoles, SensoresController.substituirSensor);
 router.patch('/:id', verifyToken, writeRoles, SensoresController.atualizarSensor);
 router.delete('/:id', verifyToken, writeRoles, SensoresController.deletarSensor);
 

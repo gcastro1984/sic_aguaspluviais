@@ -41,6 +41,8 @@ import alertaDestinatarioModel from "./alerta_destinatario.model.js";
 import criterio_alertaModel from "./criterio_alerta.model.js";
 import PrevisaoMeteorologicaModel from "./previsao_meteorologica.model.js";
 import NotificacaoModel from "./notificacao.model.js";
+import RelatorioModel from "./relatorio.model.js";
+import PlanoAlertaModel from "./plano_alerta.model.js";
 
 const Sensor = SensorModel(sequelize, DataTypes);
 const InfraestruturaUrbana = InfraestruturaUrbanaModel(sequelize, DataTypes);
@@ -56,6 +58,8 @@ const Destinatarios = DestinatariosModel(sequelize, DataTypes);
 const AlertaDestinatario = alertaDestinatarioModel(sequelize, DataTypes);
 const PrevisaoMeteorologica = PrevisaoMeteorologicaModel(sequelize, DataTypes);
 const Notificacao = NotificacaoModel(sequelize, DataTypes);
+const Relatorio = RelatorioModel(sequelize, DataTypes);
+const PlanoAlerta = PlanoAlertaModel(sequelize, DataTypes);
 
 
 
@@ -206,6 +210,39 @@ Sensor.hasMany(Notificacao, {
     constraints: false
 });
 
+// RELATORIO → UTILIZADOR / ALERTA
+Relatorio.belongsTo(Utilizador, {
+    foreignKey: 'idutilizador'
+});
+
+Utilizador.hasMany(Relatorio, {
+    foreignKey: 'idutilizador'
+});
+
+Relatorio.belongsTo(Alerta, {
+    foreignKey: 'idalerta'
+});
+
+Alerta.hasMany(Relatorio, {
+    foreignKey: 'idalerta'
+});
+
+// PLANO_ACAO ↔ NIVEL_ALERTA (through plano_alerta)
+PlanoAcao.belongsToMany(NivelAlerta, {
+    through: PlanoAlerta,
+    foreignKey: 'idplano_acao',
+    otherKey: 'idnivel_alerta'
+});
+
+NivelAlerta.belongsToMany(PlanoAcao, {
+    through: PlanoAlerta,
+    foreignKey: 'idnivel_alerta',
+    otherKey: 'idplano_acao'
+});
+
+PlanoAlerta.belongsTo(PlanoAcao,   { foreignKey: 'idplano_acao' });
+PlanoAlerta.belongsTo(NivelAlerta, { foreignKey: 'idnivel_alerta' });
+
 // Sync the models with the database
 try {
     await sequelize.sync(); // use { force: true } to drop and recreate tables on every sync (use with caution in production)
@@ -220,4 +257,4 @@ try {
 
 
 // export the models for use in other modules
-export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, Utilizador, Destinatarios, PrevisaoMeteorologica, CriterioAlerta, AlertaPlanoAcao, AlertaDestinatario, Notificacao };
+export { Alerta, LeituraSensor, NivelAlerta, Sensor, AreaRisco, InfraestruturaUrbana, PlanoAcao, PlanoAlerta, Utilizador, Destinatarios, PrevisaoMeteorologica, CriterioAlerta, AlertaPlanoAcao, AlertaDestinatario, Notificacao, Relatorio };

@@ -1,6 +1,5 @@
 import { Notificacao, Alerta, Destinatarios } from '../models/db.config.js';
-import { missingFieldsValidationError, notFoundError, sequelizeValidationError, genericError } from '../utils/error.utils.js';
-import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
+import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
 
 const notifLinks = (id) => ({
     self:   { href: `/notificacoes/${id}`,  method: 'GET' },
@@ -19,6 +18,14 @@ export const criarNotificacao = async (req, res, next) => {
         if (!estado_envio) missingFields.push('estado_envio');
         if (missingFields.length) return next(missingFieldsValidationError(missingFields));
 
+        const canaisValidos = ['email', 'sms', 'push'];
+        if (!canaisValidos.includes(canal))
+            return next(validationError({ canal: `Canal inválido. Use: ${canaisValidos.join(', ')}` }));
+
+        const estadosEnvioValidos = ['pendente', 'enviado', 'falhou'];
+        if (!estadosEnvioValidos.includes(estado_envio))
+            return next(validationError({ estado_envio: `Estado inválido. Use: ${estadosEnvioValidos.join(', ')}` }));
+
         const alerta = await Alerta.findByPk(idalerta);
         if (!alerta) return next(notFoundError('alerta', idalerta));
 
@@ -32,9 +39,7 @@ export const criarNotificacao = async (req, res, next) => {
         });
 
         return res.status(201).json({
-            message: 'Notificação criada com sucesso',
-            data: notificacao,
-            links: { ...notifLinks(notificacao.idnotificacao), allNotificacoes: { href: '/notificacoes', method: 'GET' } }
+            _self: `/notificacoes/${notificacao.idnotificacao}`
         });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
@@ -44,7 +49,15 @@ export const criarNotificacao = async (req, res, next) => {
 
 export const obterNotificacoes = async (req, res, next) => {
     try {
-        const { page, limit, offset } = getPagination(req.query);
+        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        let offset, page;
+        if (req.query.offset !== undefined) {
+            offset = Math.max(0, parseInt(req.query.offset) || 0);
+            page   = Math.floor(offset / limit) + 1;
+        } else {
+            page   = Math.max(1, parseInt(req.query.page) || 1);
+            offset = (page - 1) * limit;
+        }
 
         const { count, rows } = await Notificacao.findAndCountAll({
             include: [
@@ -55,12 +68,13 @@ export const obterNotificacoes = async (req, res, next) => {
             offset
         });
 
-        const data = rows.map(n => ({ ...n.toJSON(), links: notifLinks(n.idnotificacao) }));
+        const data  = rows.map(n => ({ ...n.toJSON(), _links: notifLinks(n.idnotificacao) }));
+        const pages = Math.ceil(count / limit);
 
-        return res.status(200).json({
+        return res.status(count > limit ? 206 : 200).json({
             data,
-            pagination: paginationMeta(count, page, limit),
-            links: { self: { href: '/notificacoes', method: 'GET' }, create: { href: '/notificacoes', method: 'POST' } }
+            pagination: { total: count, page, limit, pages },
+            _links: { self: { href: '/notificacoes', method: 'GET' }, create: { href: '/notificacoes', method: 'POST' } }
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -80,8 +94,8 @@ export const obterNotificacaoPorId = async (req, res, next) => {
         if (!notificacao) return next(notFoundError('notificação', id));
 
         return res.status(200).json({
-            data: notificacao,
-            links: { ...notifLinks(id), allNotificacoes: { href: '/notificacoes', method: 'GET' } }
+            ...notificacao.toJSON(),
+            _links: { ...notifLinks(id), allNotificacoes: { href: '/notificacoes', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -95,6 +109,14 @@ export const atualizarNotificacao = async (req, res, next) => {
 
         const notificacao = await Notificacao.findByPk(id);
         if (!notificacao) return next(notFoundError('notificação', id));
+
+        const canaisValidos = ['email', 'sms', 'push'];
+        if (canal !== undefined && !canaisValidos.includes(canal))
+            return next(validationError({ canal: `Canal inválido. Use: ${canaisValidos.join(', ')}` }));
+
+        const estadosEnvioValidos = ['pendente', 'enviado', 'falhou'];
+        if (estado_envio !== undefined && !estadosEnvioValidos.includes(estado_envio))
+            return next(validationError({ estado_envio: `Estado inválido. Use: ${estadosEnvioValidos.join(', ')}` }));
 
         if (idalerta !== undefined) {
             const alerta = await Alerta.findByPk(idalerta);
@@ -119,8 +141,8 @@ export const atualizarNotificacao = async (req, res, next) => {
 
         return res.status(200).json({
             message: 'Notificação atualizada com sucesso',
-            data: notificacao,
-            links: { ...notifLinks(id), allNotificacoes: { href: '/notificacoes', method: 'GET' } }
+            ...notificacao.toJSON(),
+            _links: { ...notifLinks(id), allNotificacoes: { href: '/notificacoes', method: 'GET' } }
         });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));

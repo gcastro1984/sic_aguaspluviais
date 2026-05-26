@@ -4,12 +4,13 @@
 export const sequelizeValidationError = (errors) => {
     const err = new Error("Validation failed");
     err.status = 400;
+    err.code   = 'validation_error';
     // if err.path is the same, group the error messages in an array for that field
-    err.errors = errors.reduce((acc, err) => {
-        if (acc[err.path]) {
-            acc[err.path].push(err.message);
+    err.errors = errors.reduce((acc, e) => {
+        if (acc[e.path]) {
+            acc[e.path].push(e.message);
         } else {
-            acc[err.path] = [err.message];
+            acc[e.path] = [e.message];
         }
         return acc;
     }, {});
@@ -22,43 +23,48 @@ export const sequelizeValidationError = (errors) => {
 export const missingFieldsValidationError = (missingFields) => {
     const err = new Error("Missing required fields");
     err.status = 400;
-    // convert array of missing fields to an object with field names as keys 
-    err.errors = missingFields.map(field => (
-        { [field.toLowerCase()]: `${field} is required` }
-    ));
+    err.code   = 'missing_fields';
+    // convert array of missing fields to an object with field names as keys
+    err.errors = missingFields.reduce((acc, field) => {
+        acc[field.toLowerCase()] = `${field} is required`;
+        return acc;
+    }, {});
     return err;
 };
 
 // error builder for other validation errors
 // e.g. invalid sort query parameter
-export const validationError = (errors) => {
-    const err = new Error("Validation failed");
+export const validationError = (message, errors) => {
+    const err = new Error(typeof message === 'string' ? message : "Validation failed");
     err.status = 400;
-    err.errors = errors;
+    err.code   = 'validation_error';
+    // backward-compat: validationError('msg') OR validationError('msg', {field: 'detail'})
+    if (errors !== undefined) {
+        err.errors = errors;
+    } else if (typeof message === 'object') {
+        err.errors = message;
+    }
     return err;
 };
 
-// error builder for 404 - Resource not found: 
+// error builder for 404 - Resource not found:
 // e.g. "product": ["Resource product with ID 10 not found"]
 // or allow a single message string for backwards compatibility
 export const notFoundError = (resource, id) => {
     const err = new Error("Resource not found");
     err.status = 404;
+    err.code   = 'not_found';
 
     if (id === undefined) {
         if (typeof resource === 'string' && resource.includes(' ')) {
             err.errors = { message: resource };
         } else {
             const key = (typeof resource === 'string') ? resource.toLowerCase() : 'resource';
-            err.errors = {
-                [key]: `Resource ${resource} not found`
-            };
+            err.errors = { [key]: `Resource ${resource} not found` };
         }
     } else {
         const key = (typeof resource === 'string') ? resource.toLowerCase() : 'resource';
-        err.errors = {
-            [key]: `Resource ${resource} with ID ${id} not found`
-        };
+        err.errors = { [key]: `Resource ${resource} with ID ${id} not found` };
     }
 
     return err;
@@ -68,14 +74,15 @@ export const notFoundError = (resource, id) => {
 export const genericError = (message = "Internal Server Error") => {
     const err = new Error(message);
     err.status = 500;
+    err.code   = 'internal_error';
     return err;
 };
 
 // error builder for 409 - Conflict error
-// e.g. when trying to create a product with a name that already exists
-// or when trying to delete a product that is associated with existing orders
+// e.g. when trying to create a resource that already exists
 export const conflictError = (message) => {
     const err = new Error(message);
     err.status = 409;
+    err.code   = 'conflict';
     return err;
 };

@@ -1,5 +1,5 @@
 import express from 'express';
-import { criarAreaRisco, obterAreasRisco, obterAreaRiscoPorId, atualizarAreaRisco, deletarAreaRisco } from '../controllers/arearisco.controller.js';
+import { criarAreaRisco, obterAreasRisco, obterAreaRiscoPorId, substituirAreaRisco, atualizarAreaRisco, deletarAreaRisco } from '../controllers/arearisco.controller.js';
 import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -10,6 +10,7 @@ const writeRoles = requireRole('administrador', 'operador_municipal');
 router.get('/',    obterAreasRisco);
 router.get('/:id', obterAreaRiscoPorId);
 router.post('/',   verifyToken, writeRoles, criarAreaRisco);
+router.put('/:id',   verifyToken, writeRoles, substituirAreaRisco);
 router.patch('/:id', verifyToken, writeRoles, atualizarAreaRisco);
 router.delete('/:id', verifyToken, writeRoles, deletarAreaRisco);
 

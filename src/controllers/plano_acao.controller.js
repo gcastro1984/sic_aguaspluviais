@@ -1,11 +1,11 @@
 import { PlanoAcao } from '../models/db.config.js';
 import { missingFieldsValidationError, sequelizeValidationError, notFoundError, genericError } from '../utils/error.utils.js';
-import { getPagination, paginationMeta } from '../utils/pagination.utils.js';
 
 const planoLinks = (id) => ({
-    self:   { href: `/planos-acao/${id}`,  method: 'GET' },
-    update: { href: `/planos-acao/${id}`,  method: 'PATCH' },
-    delete: { href: `/planos-acao/${id}`,  method: 'DELETE' }
+    self:    { href: `/planos-acao/${id}`,  method: 'GET' },
+    replace: { href: `/planos-acao/${id}`,  method: 'PUT' },
+    update:  { href: `/planos-acao/${id}`,  method: 'PATCH' },
+    delete:  { href: `/planos-acao/${id}`,  method: 'DELETE' }
 });
 
 export const criarPlanoAcao = async (req, res, next) => {
@@ -18,9 +18,7 @@ export const criarPlanoAcao = async (req, res, next) => {
         const planoAcao = await PlanoAcao.create({ descricao, tipo_destinatario });
 
         return res.status(201).json({
-            message: 'Plano de ação criado com sucesso',
-            data: planoAcao,
-            links: { ...planoLinks(planoAcao.idplano_acao), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
+            _self: `/planos-acao/${planoAcao.idplano_acao}`
         });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
@@ -30,15 +28,25 @@ export const criarPlanoAcao = async (req, res, next) => {
 
 export const obterPlanosAcao = async (req, res, next) => {
     try {
-        const { page, limit, offset } = getPagination(req.query);
+        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        let offset, page;
+        if (req.query.offset !== undefined) {
+            offset = Math.max(0, parseInt(req.query.offset) || 0);
+            page   = Math.floor(offset / limit) + 1;
+        } else {
+            page   = Math.max(1, parseInt(req.query.page) || 1);
+            offset = (page - 1) * limit;
+        }
+
         const { count, rows } = await PlanoAcao.findAndCountAll({ limit, offset });
 
-        const data = rows.map(p => ({ ...p.toJSON(), links: planoLinks(p.idplano_acao) }));
+        const data  = rows.map(p => ({ ...p.toJSON(), _links: planoLinks(p.idplano_acao) }));
+        const pages = Math.ceil(count / limit);
 
-        return res.status(200).json({
+        return res.status(count > limit ? 206 : 200).json({
             data,
-            pagination: paginationMeta(count, page, limit),
-            links: { self: { href: '/planos-acao', method: 'GET' }, create: { href: '/planos-acao', method: 'POST' } }
+            pagination: { total: count, page, limit, pages },
+            _links: { self: { href: '/planos-acao', method: 'GET' }, create: { href: '/planos-acao', method: 'POST' } }
         });
     } catch (error) {
         return next(genericError('Erro ao obter planos de ação'));
@@ -53,8 +61,8 @@ export const obterPlanoAcaoPorId = async (req, res, next) => {
         if (!planoAcao) return next(notFoundError('plano_acao', id));
 
         return res.status(200).json({
-            data: planoAcao,
-            links: { ...planoLinks(id), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
+            ...planoAcao.toJSON(),
+            _links: { ...planoLinks(id), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError('Erro ao obter plano de ação'));
@@ -77,12 +85,37 @@ export const atualizarPlanoAcao = async (req, res, next) => {
 
         return res.status(200).json({
             message: 'Plano de ação atualizado com sucesso',
-            data: planoAcao,
-            links: { ...planoLinks(id), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
+            ...planoAcao.toJSON(),
+            _links: { ...planoLinks(id), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
         });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
         return next(genericError('Erro ao atualizar plano de ação'));
+    }
+};
+
+// PUT /planos-acao/:id – substituição completa
+export const substituirPlanoAcao = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { descricao, tipo_destinatario } = req.body;
+
+        if (!descricao || !tipo_destinatario)
+            return next(missingFieldsValidationError(['descricao', 'tipo_destinatario']));
+
+        const planoAcao = await PlanoAcao.findByPk(id);
+        if (!planoAcao) return next(notFoundError('plano_acao', id));
+
+        await planoAcao.update({ descricao, tipo_destinatario });
+
+        return res.status(200).json({
+            message: 'Plano de ação substituído com sucesso',
+            ...planoAcao.toJSON(),
+            _links: { ...planoLinks(id), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
+        });
+    } catch (error) {
+        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
+        return next(genericError('Erro ao substituir plano de ação'));
     }
 };
 
