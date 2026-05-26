@@ -178,7 +178,7 @@ PrevisaoMeteorologica.belongsTo(AreaRisco, {
     foreignKey: 'idarea_risco'
 });
 
-// NOTIFICACAO -> ALERTA / DESTINATARIO
+// NOTIFICACAO -> ALERTA / DESTINATARIO / SENSOR
 Notificacao.belongsTo(Alerta, {
     foreignKey: 'idalerta'
 });
@@ -193,6 +193,17 @@ Notificacao.belongsTo(Destinatarios, {
 
 Destinatarios.hasMany(Notificacao, {
     foreignKey: 'iddestinatario'
+});
+
+// Notificações de calibração/manutenção ligadas diretamente ao sensor
+Notificacao.belongsTo(Sensor, {
+    foreignKey: 'idsensor',
+    constraints: false   // a FK é opcional — não existe na tabela de alertas normais
+});
+
+Sensor.hasMany(Notificacao, {
+    foreignKey: 'idsensor',
+    constraints: false
 });
 
 // Sync the models with the database

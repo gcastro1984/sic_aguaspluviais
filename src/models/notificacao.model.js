@@ -10,7 +10,12 @@ export default (sequelize, DataTypes) =>
 
         idalerta: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true   // nullable: notificações de calibração não têm alerta associado
+        },
+
+        idsensor: {
+            type: DataTypes.INTEGER,
+            allowNull: true   // preenchido em notificações de manutenção/calibração
         },
 
         iddestinatario: {
