@@ -1582,7 +1582,9 @@
             <thead>
               <tr>
                 <th>ID Alerta</th>
-                <th>ID Plano</th>
+                <th>Infraestrutura</th>
+                <th>Plano de Ação</th>
+                <th>Destinatário</th>
                 <th>Estado</th>
                 <th>Data Ativação</th>
                 <th>Observações</th>
@@ -1591,7 +1593,7 @@
             </thead>
             <tbody id="planos-tbody">
               <tr>
-                <td colspan="6">
+                <td colspan="8">
                   <div class="loading">
                     <div class="spinner"></div>A carregar...
                   </div>
@@ -2306,6 +2308,38 @@
         <button class="btn btn-outline" onclick="closeModal('modal-novo-plano')">Cancelar</button>
       </div>
       <div class="api-response" id="modal-plano-resp"></div>
+    </div>
+  </div>
+
+  <!-- Editar Estado Alerta-Plano -->
+  <div class="modal-backdrop" id="modal-editar-plano-estado">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3>Alterar Estado do Plano</h3>
+        <button class="modal-close" onclick="closeModal('modal-editar-plano-estado')">✕</button>
+      </div>
+      <input type="hidden" id="edit-plano-idalerta" />
+      <input type="hidden" id="edit-plano-idplano" />
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group">
+          <label>Novo Estado *</label>
+          <select id="edit-plano-estado">
+            <option value="pendente">Pendente</option>
+            <option value="ativo">Ativo</option>
+            <option value="concluido">Concluído</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="edit-plano-obs" placeholder="Observações (opcional)..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="guardarEstadoPlano()"><i class="fa fa-check"></i> Guardar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-editar-plano-estado')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-editar-plano-resp"></div>
     </div>
   </div>
 
@@ -3051,21 +3085,30 @@
     // ─── PLANOS ────────────────────────────────────────────
     async function loadPlanos() {
       const tbody = document.getElementById('planos-tbody');
-      tbody.innerHTML = `<tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const r = await apiCall('GET', '/alertas-planos');
-      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      if (!r.ok) { tbody.innerHTML = errRow(8, 'Erro: ' + (r.data.error_description || r.status)); return; }
       const list = getList(r);
-      if (!list.length) { tbody.innerHTML = emptyRow(6, 'Sem planos associados.'); return; }
-      tbody.innerHTML = list.map(p => `
+      if (!list.length) { tbody.innerHTML = emptyRow(8, 'Sem planos associados.'); return; }
+      tbody.innerHTML = list.map(p => {
+        const infraNome    = p.alerta?.infraestrutura_urbana?.nome || '—';
+        const descPlano    = p.plano_acao?.descricao              || `Plano #${p.idplano_acao}`;
+        const destinatario = p.plano_acao?.tipo_destinatario       || '—';
+        return `
     <tr>
       <td class="td-mono">#${p.idalerta || '—'}</td>
-      <td class="td-mono">#${p.idplano_acao || '—'}</td>
+      <td title="${infraNome}">${infraNome}</td>
+      <td title="${descPlano}">${descPlano}</td>
+      <td><span class="badge">${destinatario}</span></td>
       <td>${estadoBadge(p.estado)}</td>
       <td class="td-mono">${fmtDate(p.data_inicio || p.createdAt)}</td>
       <td>${p.observacoes || '—'}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="apagarPlano(${p.idalerta},${p.idplano_acao})"><i class="fa fa-trash"></i></button></td>
-    </tr>
-  `).join('');
+      <td style="display:flex;gap:.4rem">
+        <button class="btn btn-sm btn-outline" title="Alterar estado" onclick="abrirEditarEstadoPlano(${p.idalerta},${p.idplano_acao},'${p.estado}')"><i class="fa fa-pen"></i></button>
+        <button class="btn btn-sm btn-danger" title="Apagar" onclick="apagarPlano(${p.idalerta},${p.idplano_acao})"><i class="fa fa-trash"></i></button>
+      </td>
+    </tr>`;
+      }).join('');
     }
 
     async function criarPlano() {
@@ -3086,6 +3129,29 @@
       const r = await apiCall('DELETE', `/alertas-planos/${idAlerta}/${idPlano}`);
       alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
       loadPlanos();
+    }
+
+    function abrirEditarEstadoPlano(idAlerta, idPlano, estadoAtual) {
+      document.getElementById('edit-plano-idalerta').value = idAlerta;
+      document.getElementById('edit-plano-idplano').value  = idPlano;
+      document.getElementById('edit-plano-obs').value      = '';
+      document.getElementById('modal-editar-plano-resp').innerHTML = '';
+      // pré-seleccionar o estado actual
+      const sel = document.getElementById('edit-plano-estado');
+      sel.value = estadoAtual || 'pendente';
+      openModal('modal-editar-plano-estado');
+    }
+
+    async function guardarEstadoPlano() {
+      const idAlerta = document.getElementById('edit-plano-idalerta').value;
+      const idPlano  = document.getElementById('edit-plano-idplano').value;
+      const estado   = document.getElementById('edit-plano-estado').value;
+      const obs      = document.getElementById('edit-plano-obs').value || undefined;
+      const body     = { estado };
+      if (obs) body.observacoes = obs;
+      const r = await apiCall('PATCH', `/alertas-planos/${idAlerta}/${idPlano}`, body);
+      showResponse('modal-editar-plano-resp', r);
+      if (r.ok) { setTimeout(() => { closeModal('modal-editar-plano-estado'); loadPlanos(); }, 1200); }
     }
 
     // ─── CALIBRAÇÃO ────────────────────────────────────────
@@ -3250,7 +3316,8 @@
       if (r.ok && r.data.accessToken) {
         authToken = r.data.accessToken;
         const banner = document.getElementById('login-response');
-        if (banner) banner.textContent = 'Login efetuado com sucesso! Tipo: ' + r.data.tipo + '. Token guardado.';
+        if (banner) banner.textContent = '✅ Login efetuado com sucesso! Tipo: ' + r.data.tipo + '. A redirecionar...';
+        setTimeout(() => navigate('alertas'), 1000);
       }
     }
 

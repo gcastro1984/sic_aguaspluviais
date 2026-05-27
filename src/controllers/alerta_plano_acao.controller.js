@@ -1,4 +1,4 @@
-import { AlertaPlanoAcao, Alerta, PlanoAcao } from '../models/db.config.js';
+import { AlertaPlanoAcao, Alerta, PlanoAcao, InfraestruturaUrbana } from '../models/db.config.js';
 import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
 
 const apaLinks = (idalerta, idplano) => ({
@@ -62,7 +62,11 @@ export const obterAlertasPlanos = async (req, res, next) => {
         const { count, rows } = await AlertaPlanoAcao.findAndCountAll({
             where,
             include: [
-                { model: Alerta,   attributes: ['idalerta', 'descricao', 'estado'] },
+                {
+                    model: Alerta,
+                    attributes: ['idalerta', 'descricao', 'estado', 'idinfraestrutura_urbana'],
+                    include: [{ model: InfraestruturaUrbana, attributes: ['idinfraestrutura_urbana', 'nome'] }]
+                },
                 { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
             ],
             limit,
@@ -89,7 +93,11 @@ export const obterAlertaPlanoAcaoPorIds = async (req, res, next) => {
         const apa = await AlertaPlanoAcao.findOne({
             where: { idalerta, idplano_acao },
             include: [
-                { model: Alerta,   attributes: ['idalerta', 'descricao', 'estado'] },
+                {
+                    model: Alerta,
+                    attributes: ['idalerta', 'descricao', 'estado', 'idinfraestrutura_urbana'],
+                    include: [{ model: InfraestruturaUrbana, attributes: ['idinfraestrutura_urbana', 'nome'] }]
+                },
                 { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
             ]
         });
@@ -139,7 +147,7 @@ export const atualizarAlertaPlanoAcao = async (req, res, next) => {
     }
 };
 
-export const deletarAlertaPlanoAcao = async (req, res, next) => {
+export const apagarAlertaPlanoAcao = async (req, res, next) => {
     try {
         const { idalerta, idplano_acao } = req.params;
 

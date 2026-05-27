@@ -94,7 +94,7 @@ function buildSensors(infra, rng, start) {
         idsensor: id++,
         tipo,
         localizacao: item.localizacao,
-        status: rng() > 0.04 ? 1 : 0,
+        status: rng() > 0.04 ? 'online' : 'offline',
         idinfraestrutura_urbana: item.idinfraestrutura_urbana,
         data_proxima_manutencao: mysqlDate(addHours(start, 24 * randint(rng, 15, 120))),
       });
@@ -191,22 +191,22 @@ function generateData(cfg) {
       const flow = round(clamp(water * uniform(rng, 0.6, 1.35), 0, 130), 2);
 
       for (const s of sensorsByInfra[infra.idinfraestrutura_urbana]) {
-        if (s.status === 0 && rng() > 0.25) continue;
-        const qualidade_dado = s.status === 0 ? 'falha' : (rng() > 0.08 ? 'boa' : 'suspeita');
+        if (s.status === 'offline' && rng() > 0.25) continue;
+        const qualidade_dado = s.status === 'offline' ? 'suspeita' : (rng() > 0.08 ? 'boa' : 'suspeita');
         const validada = qualidade_dado === 'boa' ? 1 : 0;
         let tipo_variavel;
         let valor;
         let unidade;
         if (s.tipo === 'nivel_agua') {
-          tipo_variavel = 'nivel_agua_percentagem';
+          tipo_variavel = 'nivel_agua';
           valor = water;
           unidade = '%';
         } else if (s.tipo === 'precipitacao') {
-          tipo_variavel = 'precipitacao_horaria';
+          tipo_variavel = 'precipitacao';
           valor = rainThisHour[area.idarea_risco];
           unidade = 'mm';
         } else {
-          tipo_variavel = 'caudal_estimado';
+          tipo_variavel = 'caudal';
           valor = flow;
           unidade = 'm3/s';
         }

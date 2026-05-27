@@ -263,7 +263,7 @@ export const notificarCalibracao = async (req, res, next) => {
         );
 
         return res.status(201).json({
-            message: `Calibração registada pelo operador #${operadorId}. ${notificacoes.length} responsável(eis) notificado(s).`,
+            message: `Calibração registada pelo operador #${operadorId}. ${notificacoes.length} responsável notificado.`,
             data: {
                 sensor:       sensor.toJSON(),
                 notificacoes: notificacoes.map(n => n.toJSON())

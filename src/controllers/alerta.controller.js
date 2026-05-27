@@ -1,4 +1,4 @@
-import { Alerta, AreaRisco, NivelAlerta, PrevisaoMeteorologica, CriterioAlerta, InfraestruturaUrbana, LeituraSensor } from '../models/db.config.js';
+import { Alerta, AreaRisco, NivelAlerta, PrevisaoMeteorologica, CriterioAlerta, InfraestruturaUrbana, LeituraSensor, AlertaPlanoAcao } from '../models/db.config.js';
 import { verificarAlertas } from '../utils/alerta.utils.js';
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from '../utils/error.utils.js';
 
@@ -128,9 +128,19 @@ export const atualizarAlerta = async (req, res, next) => {
         if (score_risco !== undefined && (score_risco < 0 || score_risco > 100))
             return next(validationError('score_risco deve estar entre 0 e 100'));
 
-        const estadosValidos = ['ativo', 'resolvido', 'falso_positivo', 'cancelado'];
+        const estadosValidos = ['ativo', 'registado', 'resolvido', 'cancelado', 'pendente', 'em_execucao', 'concluido'];
         if (estado !== undefined && !estadosValidos.includes(estado))
             return next(validationError({ estado: `Estado inválido. Use: ${estadosValidos.join(', ')}` }));
+
+        if (estado === 'resolvido') {
+            const planosAtivos = await AlertaPlanoAcao.count({
+                where: { idalerta: id, estado: ['pendente', 'ativo'] }
+            });
+            if (planosAtivos > 0)
+                return next(conflictError(
+                    `Não é possível resolver o alerta: existem ${planosAtivos} plano(s) de ação pendente(s) ou ativo(s). Conclua ou cancele-os primeiro.`
+                ));
+        }
 
         const updateData = {};
         if (idnivel_alerta !== undefined) updateData.idnivel_alerta = idnivel_alerta;
@@ -166,6 +176,16 @@ export const substituirAlerta = async (req, res, next) => {
 
         if (score_risco !== undefined && (score_risco < 0 || score_risco > 100))
             return next(validationError('score_risco deve estar entre 0 e 100'));
+
+        if (estado === 'resolvido') {
+            const planosAtivos = await AlertaPlanoAcao.count({
+                where: { idalerta: id, estado: ['pendente', 'ativo'] }
+            });
+            if (planosAtivos > 0)
+                return next(conflictError(
+                    `Não é possível resolver o alerta: existem ${planosAtivos} plano(s) de ação pendente(s) ou ativo(s). Conclua ou cancele-os primeiro.`
+                ));
+        }
 
         const alerta = await Alerta.findByPk(id);
         if (!alerta) return next(notFoundError('alerta', id));
