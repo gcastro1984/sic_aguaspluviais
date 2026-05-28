@@ -1,5 +1,7 @@
 import { PlanoAcao } from '../models/db.config.js';
-import { missingFieldsValidationError, sequelizeValidationError, notFoundError, genericError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, validationError, sequelizeValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
+
+const TIPOS_DESTINATARIO_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade'];
 
 const planoLinks = (id) => ({
     self:    { href: `/planos-acao/${id}`,  method: 'GET' },
@@ -14,6 +16,9 @@ export const criarPlanoAcao = async (req, res, next) => {
 
         if (!descricao || !tipo_destinatario)
             return next(missingFieldsValidationError(['descricao', 'tipo_destinatario']));
+
+        if (!TIPOS_DESTINATARIO_VALIDOS.includes(tipo_destinatario))
+            return next(validationError({ tipo_destinatario: `Tipo inválido. Use: ${TIPOS_DESTINATARIO_VALIDOS.join(', ')}` }));
 
         const planoAcao = await PlanoAcao.create({ descricao, tipo_destinatario });
 
@@ -77,6 +82,9 @@ export const atualizarPlanoAcao = async (req, res, next) => {
         const planoAcao = await PlanoAcao.findByPk(id);
         if (!planoAcao) return next(notFoundError('plano_acao', id));
 
+        if (tipo_destinatario !== undefined && !TIPOS_DESTINATARIO_VALIDOS.includes(tipo_destinatario))
+            return next(validationError({ tipo_destinatario: `Tipo inválido. Use: ${TIPOS_DESTINATARIO_VALIDOS.join(', ')}` }));
+
         const updateData = {};
         if (descricao !== undefined) updateData.descricao = descricao;
         if (tipo_destinatario !== undefined) updateData.tipo_destinatario = tipo_destinatario;
@@ -102,6 +110,9 @@ export const substituirPlanoAcao = async (req, res, next) => {
 
         if (!descricao || !tipo_destinatario)
             return next(missingFieldsValidationError(['descricao', 'tipo_destinatario']));
+
+        if (!TIPOS_DESTINATARIO_VALIDOS.includes(tipo_destinatario))
+            return next(validationError({ tipo_destinatario: `Tipo inválido. Use: ${TIPOS_DESTINATARIO_VALIDOS.join(', ')}` }));
 
         const planoAcao = await PlanoAcao.findByPk(id);
         if (!planoAcao) return next(notFoundError('plano_acao', id));
@@ -129,6 +140,8 @@ export const apagarPlanoAcao = async (req, res, next) => {
         await planoAcao.destroy();
         return res.status(204).send();
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: este plano de ação está associado a níveis de alerta'));
         return next(genericError('Erro ao apagar plano de ação'));
     }
 };

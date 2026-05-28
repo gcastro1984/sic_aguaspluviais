@@ -14,6 +14,10 @@ export const criarAlertaPlanoAcao = async (req, res, next) => {
         if (!idalerta || !idplano_acao || !estado || !responsavel)
             return next(missingFieldsValidationError(['idalerta', 'idplano_acao', 'estado', 'responsavel']));
 
+        const estadosValidos = ['pendente', 'ativo', 'concluido', 'cancelado'];
+        if (!estadosValidos.includes(estado))
+            return next(validationError({ estado: `Estado inválido. Use: ${estadosValidos.join(', ')}` }));
+
         const alerta = await Alerta.findByPk(idalerta);
         if (!alerta) return next(notFoundError('alerta', idalerta));
 

@@ -3231,7 +3231,7 @@
           <td class="td-mono">${rel.Utilizador?.email || rel.idutilizador || '—'}</td>
           <td class="td-mono">${rel.idalerta ? '#' + rel.idalerta : '—'}</td>
           <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${rel.descricao || ''}">${rel.descricao || '—'}</td>
-          <td class="td-mono">${fmtDate(rel.createdAt)}</td>
+          <td class="td-mono">${fmtDate(rel.data)}</td>
           <td>${actions(`editRelatorio(${rel.idrelatorio})`, `apagarRelatorio(${rel.idrelatorio})`)}</td>
         </tr>
       `).join('');

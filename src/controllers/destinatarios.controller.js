@@ -104,6 +104,7 @@ export const atualizarDestinatario = async (req, res, next) => {
         });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
+        if (error.name === 'SequelizeUniqueConstraintError') return next(conflictError(`Email '${req.body.email}' já está registado`));
         return next(genericError(error.message));
     }
 };
@@ -120,6 +121,9 @@ export const substituirDestinatario = async (req, res, next) => {
         if (!email) missingFields.push('email');
         if (missingFields.length) return next(missingFieldsValidationError(missingFields));
 
+        if (!TIPOS_VALIDOS.includes(tipo))
+            return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_VALIDOS.join(', ')}` }));
+
         const destinatario = await Destinatarios.findByPk(id);
         if (!destinatario) return next(notFoundError('destinatário', id));
 
@@ -132,6 +136,7 @@ export const substituirDestinatario = async (req, res, next) => {
         });
     } catch (error) {
         if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
+        if (error.name === 'SequelizeUniqueConstraintError') return next(conflictError(`Email '${req.body.email}' já está registado`));
         return next(genericError(error.message));
     }
 };

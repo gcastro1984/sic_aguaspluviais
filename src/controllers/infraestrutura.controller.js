@@ -1,5 +1,5 @@
 import { InfraestruturaUrbana } from '../models/db.config.js';
-import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from '../utils/error.utils.js';
+import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
 
 const infraLinks = (id) => ({
     self:    { href: `/infraestruturas/${id}`,  method: 'GET' },
@@ -140,6 +140,8 @@ export const deletarInfraestruturaUrbana = async (req, res, next) => {
         await infra.destroy();
         return res.status(204).send();
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: existem sensores associados a esta infraestrutura'));
         next(genericError('Erro ao deletar infraestrutura urbana'));
     }
 };

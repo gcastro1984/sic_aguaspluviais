@@ -12,7 +12,6 @@ export const criarNotificacao = async (req, res, next) => {
         const { idalerta, iddestinatario, canal, data_envio, estado_envio, data_confirmacao, mensagem, erro_envio } = req.body;
 
         const missingFields = [];
-        if (!idalerta) missingFields.push('idalerta');
         if (!iddestinatario) missingFields.push('iddestinatario');
         if (!canal) missingFields.push('canal');
         if (!estado_envio) missingFields.push('estado_envio');
@@ -26,8 +25,11 @@ export const criarNotificacao = async (req, res, next) => {
         if (!estadosEnvioValidos.includes(estado_envio))
             return next(validationError({ estado_envio: `Estado inválido. Use: ${estadosEnvioValidos.join(', ')}` }));
 
-        const alerta = await Alerta.findByPk(idalerta);
-        if (!alerta) return next(notFoundError('alerta', idalerta));
+        // idalerta é opcional (notificações de calibração não têm alerta associado)
+        if (idalerta) {
+            const alerta = await Alerta.findByPk(idalerta);
+            if (!alerta) return next(notFoundError('alerta', idalerta));
+        }
 
         const destinatario = await Destinatarios.findByPk(iddestinatario);
         if (!destinatario) return next(notFoundError('destinatário', iddestinatario));

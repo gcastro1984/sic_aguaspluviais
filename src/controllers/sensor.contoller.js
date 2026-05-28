@@ -1,6 +1,8 @@
 import { Sensor, Notificacao, Destinatarios } from '../models/db.config.js';
 import { sequelizeValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
 
+const TIPOS_SENSOR_VALIDOS = ['nivel_agua', 'precipitacao', 'caudal', 'temperatura', 'humidade'];
+
 // Valida que a data é válida e estritamente futura (> hoje)
 function validarDataFutura(valor, campo) {
     const d = new Date(valor);
@@ -68,6 +70,9 @@ export const createNewSensor = async (req, res, next) => {
         if (!tipo || !localizacao)
             return next(validationError({ tipo: 'Campo tipo é obrigatório.', localizacao: 'Campo localizacao é obrigatório.' }));
 
+        if (!TIPOS_SENSOR_VALIDOS.includes(tipo))
+            return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_SENSOR_VALIDOS.join(', ')}` }));
+
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))
             return next(validationError({ status: 'Status inválido. Use online, offline ou manutencao.' }));
@@ -99,6 +104,9 @@ export const atualizarSensor = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { tipo, localizacao, status, idinfraestrutura_urbana, data_proxima_manutencao } = req.body;
+
+        if (tipo !== undefined && !TIPOS_SENSOR_VALIDOS.includes(tipo))
+            return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_SENSOR_VALIDOS.join(', ')}` }));
 
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))
@@ -141,6 +149,9 @@ export const substituirSensor = async (req, res, next) => {
 
         if (!tipo || !localizacao)
             return next(validationError('tipo e localizacao são obrigatórios', { tipo: 'obrigatório', localizacao: 'obrigatório' }));
+
+        if (!TIPOS_SENSOR_VALIDOS.includes(tipo))
+            return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_SENSOR_VALIDOS.join(', ')}` }));
 
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))

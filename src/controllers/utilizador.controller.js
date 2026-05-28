@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Utilizador } from '../models/db.config.js';
-import { genericError } from '../utils/error.utils.js';
+import { genericError, missingFieldsValidationError, validationError, conflictError, notFoundError, sequelizeValidationError, unauthorizedError } from '../utils/error.utils.js';
 
 const userLinks = (id) => ({
     self:   { href: `/utilizadores/${id}`,  method: 'GET' },
@@ -14,18 +14,18 @@ export const criarUtilizador = async (req, res, next) => {
         const { email, password, tipo } = req.body;
 
         if (!email || !password || !tipo)
-            return res.status(400).json({ error: 'invalid_request', error_description: 'email, password and tipo are mandatory.' });
+            return next(missingFieldsValidationError(['email', 'password', 'tipo']));
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email))
-            return res.status(400).json({ error: 'validation_error', error_description: 'Formato de email inválido.' });
+            return next(validationError({ email: 'Formato de email inválido.' }));
 
         if (password.length < 8)
-            return res.status(400).json({ error: 'validation_error', error_description: 'A password deve ter pelo menos 8 caracteres.' });
+            return next(validationError({ password: 'A password deve ter pelo menos 8 caracteres.' }));
 
         const tiposValidos = ['administrador', 'operador_municipal', 'analista_risco'];
         if (!tiposValidos.includes(tipo))
-            return res.status(400).json({ error: 'invalid_tipo', error_description: `tipo must be one of: ${tiposValidos.join(', ')}` });
+            return next(validationError({ tipo: `Tipo inválido. Use: ${tiposValidos.join(', ')}` }));
 
         const password_hash = await bcrypt.hash(password, 12);
         const utilizador = await Utilizador.create({ email, password_hash, tipo });
@@ -35,9 +35,9 @@ export const criarUtilizador = async (req, res, next) => {
         });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError')
-            return res.status(409).json({ error: 'conflict', error_description: 'Email already in use.' });
+            return next(conflictError('Email já está em uso.'));
         if (error.name === 'SequelizeValidationError')
-            return res.status(400).json({ error: 'validation_error', errors: error.errors.map(e => e.message) });
+            return next(sequelizeValidationError(error.errors));
         return next(genericError(error.message));
     }
 };
@@ -48,12 +48,12 @@ export const login = async (req, res, next) => {
         const { email, password } = req.body;
 
         if (!email || !password)
-            return res.status(400).json({ error: 'invalid_request', error_description: 'Email and password are mandatory.' });
+            return next(missingFieldsValidationError(['email', 'password']));
 
         const user = await Utilizador.findOne({ where: { email } });
 
         if (!user || !(await bcrypt.compare(password, user.password_hash)))
-            return res.status(401).json({ error: 'invalid_credentials', error_description: 'Invalid email or password.' });
+            return next(unauthorizedError('Email ou password inválidos.'));
 
         const token = jwt.sign(
             { sub: user.idutilizador, tipo: user.tipo },
@@ -78,7 +78,7 @@ export const obterUtilizador = async (req, res, next) => {
             attributes: ['idutilizador', 'email', 'tipo']
         });
 
-        if (!user) return res.status(404).json({ error: 'not_found', error_description: 'User not found.' });
+        if (!user) return next(notFoundError('utilizador', req.params.id));
 
         return res.status(200).json({
             ...user.toJSON(),
@@ -125,7 +125,7 @@ export const obterUtilizadores = async (req, res, next) => {
 export const apagarUtilizador = async (req, res, next) => {
     try {
         const deleted = await Utilizador.destroy({ where: { idutilizador: req.params.id } });
-        if (!deleted) return res.status(404).json({ error: 'not_found', error_description: 'User not found.' });
+        if (!deleted) return next(notFoundError('utilizador', req.params.id));
         return res.status(204).send();
     } catch (error) {
         return next(genericError(error.message));

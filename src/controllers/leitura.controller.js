@@ -1,4 +1,4 @@
-import { LeituraSensor, Sensor, Alerta, AlertaPlanoAcao, PlanoAlerta, InfraestruturaUrbana, AreaRisco } from '../models/db.config.js';
+import { LeituraSensor, Sensor, Alerta, AlertaPlanoAcao, PlanoAlerta, InfraestruturaUrbana, AreaRisco, Relatorio, Utilizador } from '../models/db.config.js';
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
 import { verificarAlertas } from '../utils/alerta.utils.js';
 
@@ -178,9 +178,31 @@ export const criarLeitura = async (req, res, next) => {
                     }));
 
                 if (novos.length > 0) {
-                    planosAssociados = await AlertaPlanoAcao.bulkCreate(novos);
+                    for (const plano of novos) {
+                        const criado = await AlertaPlanoAcao.create(plano);
+                        planosAssociados.push(criado);
+                    }
                     console.log(`[planos] ${planosAssociados.length} plano(s) associado(s) ao alerta ${alertaCriado.idalerta}`);
                 }
+            }
+        }
+
+        // ── Gerar relatório automático quando há alerta ──────────────────────
+        if (alertaCriado && resultado.nivel > 1) {
+            const sistemaUser = await Utilizador.findOne({ where: { tipo: 'administrador' } });
+            if (sistemaUser) {
+                await Relatorio.create({
+                    descricao: `Relatório automático — ${resultado.mensagem}. ` +
+                               `Score de risco: ${resultado.score_risco}. ` +
+                               `Nível de água: ${resultado.water}%. ` +
+                               `Precipitação acumulada (6h): ${resultado.rain6h}mm. ` +
+                               `Previsão meteorológica: ${resultado.forecast1h}mm.`,
+                    idutilizador: sistemaUser.idutilizador,
+                    idalerta:     alertaCriado.idalerta
+                });
+                console.log(`[relatorio] Relatório automático gerado para alerta ${alertaCriado.idalerta}`);
+            } else {
+                console.warn('[relatorio] Nenhum utilizador administrador encontrado — relatório não gerado.');
             }
         }
 

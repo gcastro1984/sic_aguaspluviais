@@ -81,22 +81,24 @@ export async function verificarAlertas(leitura) {
         }
     }
 
-    console.log(`[verificarAlertas] sensor=${leitura.idsensor} tipo=${leitura.tipo_variavel} water=${water} rain6h=${rain6h}`);
+    // ── 3. Vulnerabilidade da área de risco ──────────────────────────────────
+    const vulnerabilidade = sensor.infraestrutura_urbana.area_risco?.vulnerabilidade_base || 3;
 
-    // ── 3. Previsão meteorológica da área ────────────────────────────────────
+    console.log(`[verificarAlertas] sensor=${leitura.idsensor} tipo=${leitura.tipo_variavel} water=${water} rain6h=${rain6h} vuln=${vulnerabilidade}`);
+
+    // ── 4. Previsão meteorológica da área ────────────────────────────────────
     const previsao = await PrevisaoMeteorologica.findOne({
         where: { idarea_risco: areaId },
         order: [['data_emissao', 'DESC']]
     });
     const forecast1h = Number(previsao?.precipitacao_prevista_mm || 0);
 
-    // ── 4. Classificar alerta ────────────────────────────────────────────────
-    const resultado = classificarAlerta({ water, rain6h, forecast1h });
+    // ── 5. Classificar alerta (com factor de vulnerabilidade) ────────────────
+    const resultado = classificarAlerta({ water, rain6h, forecast1h, vulnerabilidade });
 
     const nivel  = resultado.idnivel_alerta;
     const score  = resultado.score_risco;
     const razoes = resultado.razoes;
-    console.log(`[verificarAlertas] nível=${nivel} score=${score} razões: ${razoes.join('; ')}`);
 
     return {
         nivel,

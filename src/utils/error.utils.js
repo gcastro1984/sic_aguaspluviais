@@ -86,3 +86,12 @@ export const conflictError = (message) => {
     err.code   = 'conflict';
     return err;
 };
+
+// error builder for 401 - Unauthorized
+// e.g. invalid credentials on login
+export const unauthorizedError = (message = 'Credenciais inválidas') => {
+    const err = new Error(message);
+    err.status = 401;
+    err.code   = 'unauthorized';
+    return err;
+};

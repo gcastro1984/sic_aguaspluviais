@@ -1,5 +1,5 @@
 import { AreaRisco } from '../models/db.config.js';
-import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from '../utils/error.utils.js';
+import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
 
 const areaLinks = (id) => ({
     self:    { href: `/areas-risco/${id}`,  method: 'GET' },
@@ -152,6 +152,8 @@ export const deletarAreaRisco = async (req, res, next) => {
         await area.destroy();
         return res.status(204).send();
     } catch (error) {
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: existem infraestruturas associadas a esta área de risco'));
         next(genericError('Erro ao deletar área de risco'));
     }
 };
