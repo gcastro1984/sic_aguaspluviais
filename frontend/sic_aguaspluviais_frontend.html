@@ -1433,11 +1433,11 @@
       </div>
       <div class="card">
         <div class="card-header">
-          <span class="card-title">Historial de Leituras</span>
+          <span class="card-title" id="leituras-title">Historial de Leituras</span>
           <div style="display:flex;gap:.5rem;align-items:center">
             <input type="number" id="filter-leitura-sensor" placeholder="Filtrar por ID sensor"
-              style="width:160px;padding:.25rem .6rem;font-size:.75rem" oninput="loadLeituras()" />
-            <button class="btn btn-sm btn-outline" onclick="loadLeituras()"><i class="fa fa-rotate"></i></button>
+              style="width:160px;padding:.25rem .6rem;font-size:.75rem" oninput="leituraPage=1;loadLeituras()" />
+            <button class="btn btn-sm btn-outline" onclick="leituraPage=1;loadLeituras()"><i class="fa fa-rotate"></i></button>
           </div>
         </div>
         <div class="table-wrap">
@@ -1457,6 +1457,13 @@
               <tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
             </tbody>
           </table>
+        </div>
+        <div id="leituras-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-dim)">
+          <span id="leituras-info"></span>
+          <div style="display:flex;gap:.4rem">
+            <button class="btn btn-sm btn-outline" id="leituras-prev" onclick="loadLeituras(-1)" disabled><i class="fa fa-chevron-left"></i> Anterior</button>
+            <button class="btn btn-sm btn-outline" id="leituras-next" onclick="loadLeituras(1)"><i class="fa fa-chevron-right"></i> Seguinte</button>
+          </div>
         </div>
       </div>
     </div>
@@ -2775,16 +2782,46 @@
       if (r.ok) { setTimeout(() => closeModal('modal-nova-leitura'), 1200); loadLeituras(); }
     }
 
-    async function loadLeituras() {
+    let leituraPage = 1;
+    const LEITURA_LIMIT = 20;
+
+    async function loadLeituras(delta = 0) {
+      leituraPage = Math.max(1, leituraPage + delta);
       const tbody = document.getElementById('leituras-tbody');
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
-      const idsensor = document.getElementById('filter-leitura-sensor')?.value;
-      const path = idsensor ? `/leituras?idsensor=${idsensor}` : '/leituras';
+
+      const idsensor = document.getElementById('filter-leitura-sensor')?.value?.trim();
+      const offset   = (leituraPage - 1) * LEITURA_LIMIT;
+      const base     = idsensor ? `/leituras/sensor/${idsensor}` : '/leituras';
+      const path     = `${base}?limit=${LEITURA_LIMIT}&offset=${offset}`;
+
       const r = await apiCall('GET', path);
-      if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.error_description || r.status)); return; }
-      const list = getList(r);
+      if (!r.ok) {
+        tbody.innerHTML = errRow(7, 'Erro: ' + (r.data?.error_description || r.status));
+        return;
+      }
+
+      const list  = getList(r);
+      const total = r.data?.pagination?.total ?? list.length;
+      const pages = Math.ceil(total / LEITURA_LIMIT) || 1;
+
+      // título com contagem
+      const title = document.getElementById('leituras-title');
+      if (title) title.textContent = `Historial de Leituras (${total} total)`;
+
+      // info de paginação
+      const info = document.getElementById('leituras-info');
+      if (info) info.textContent = `Página ${leituraPage} de ${pages}`;
+
+      // botões prev/next
+      const prev = document.getElementById('leituras-prev');
+      const next = document.getElementById('leituras-next');
+      if (prev) prev.disabled = leituraPage <= 1;
+      if (next) next.disabled = leituraPage >= pages;
+
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhuma leitura encontrada.'); return; }
+
       tbody.innerHTML = list.map(l => `
         <tr>
           <td class="td-mono">#${l.idleitura_sensor || '—'}</td>
@@ -2839,7 +2876,7 @@
     }
 
     async function editAlerta(id) {
-      const estado = prompt('Novo estado (ativo / resolvido / falso_positivo):');
+      const estado = prompt('Novo estado (ativo / resolvido / cancelado):');
       if (!estado) return;
       const r = await apiCall('PATCH', `/alertas/${id}`, { estado });
       alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));

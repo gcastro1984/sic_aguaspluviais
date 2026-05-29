@@ -7,6 +7,7 @@ const router = express.Router();
 const writeRoles = requireRole('administrador', 'operador_municipal');
 
 // GET /infraestruturas?idarea_risco=1&tipo=X&page=1&limit=20
+
 router.get('/',    obterInfraestruturas);
 router.get('/:id', obterInfraestruturaUrbanaId);
 router.post('/',   verifyToken, writeRoles, criarInfraestruturaUrbana);

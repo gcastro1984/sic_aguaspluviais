@@ -10,10 +10,9 @@ const leituraLinks = (id) => ({
     delete: { href: `/leituras/${id}`, method: 'DELETE' }
 });
 
-// GET /leituras?idsensor=1&page=1&limit=20
+// GET /leituras?page=1&limit=20
 export const obterLeituras = async (req, res, next) => {
     try {
-        const { idsensor } = req.query;
         const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
         let offset, page;
         if (req.query.offset !== undefined) {
@@ -24,10 +23,7 @@ export const obterLeituras = async (req, res, next) => {
             offset = (page - 1) * limit;
         }
 
-        const where = {};
-        if (idsensor) where.idsensor = parseInt(idsensor);
-
-        const { count, rows } = await LeituraSensor.findAndCountAll({ where, limit, offset, order: [['data_registo', 'DESC']] });
+        const { count, rows } = await LeituraSensor.findAndCountAll({ limit, offset, order: [['data_registo', 'DESC']] });
 
         const data  = rows.map(l => ({ ...l.toJSON(), _links: leituraLinks(l.idleitura_sensor) }));
         const pages = Math.ceil(count / limit);
@@ -42,6 +38,79 @@ export const obterLeituras = async (req, res, next) => {
     }
 };
 
+
+export const obterLeiturasPorSensor = async (req, res, next) => {
+    try {
+        const { idsensor } = req.params;
+
+        const sensor = await Sensor.findByPk(idsensor);
+        if (!sensor) return next(notFoundError('sensor', idsensor));
+
+        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        let offset, page;
+        if (req.query.offset !== undefined) {
+            offset = Math.max(0, parseInt(req.query.offset) || 0);
+            page   = Math.floor(offset / limit) + 1;
+        } else {
+            page   = Math.max(1, parseInt(req.query.page) || 1);
+            offset = (page - 1) * limit;
+        }
+
+        const { count, rows } = await LeituraSensor.findAndCountAll({
+            where: { idsensor: parseInt(idsensor) },
+            limit,
+            offset,
+            order: [['data_registo', 'DESC']]
+        });
+
+        const data  = rows.map(l => ({ ...l.toJSON(), _links: leituraLinks(l.idleitura_sensor) }));
+        const pages = Math.ceil(count / limit);
+
+        return res.status(count > limit ? 206 : 200).json({
+            data,
+            pagination: { total: count, page, limit, pages },
+            _links: {
+                self:   { href: `/leituras/sensor/${idsensor}`, method: 'GET' },
+                sensor: { href: `/sensores/${idsensor}`,        method: 'GET' }
+            }
+        });
+    } catch (error) {
+        return next(genericError('Erro ao obter leituras do sensor'));
+    }
+};
+
+export const obterLeituraPorId = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const leitura = await LeituraSensor.findByPk(id);
+
+        if (!leitura) return next(notFoundError('leitura', id));
+
+        return res.status(200).json({
+            ...leitura.toJSON(),
+            _links: {
+                ...leituraLinks(id),
+                allLeituras: { href: '/leituras', method: 'GET' }
+            }
+        });
+    } catch (error) {
+        return next(genericError('Erro ao obter leitura'));
+    }
+};
+
+export const apagarLeitura = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const leitura = await LeituraSensor.findByPk(id);
+
+        if (!leitura) return next(notFoundError('leitura', id));
+
+        await leitura.destroy();
+        return res.status(204).send();
+    } catch (error) {
+        return next(genericError('Erro ao apagar leitura'));
+    }
+};
 
 export const criarLeitura = async (req, res, next) => {
     try {

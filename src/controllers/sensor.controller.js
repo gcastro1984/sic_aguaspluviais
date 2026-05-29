@@ -20,7 +20,7 @@ const sensorLinks = (id) => ({
     delete:  { href: `/sensores/${id}`,  method: 'DELETE' }
 });
 
-export const getAllSensors = async (req, res, next) => {
+export const obterSensores = async (req, res, next) => {
     try {
         const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
         let offset, page;
@@ -47,7 +47,7 @@ export const getAllSensors = async (req, res, next) => {
     }
 };
 
-export const getSensorById = async (req, res, next) => {
+export const obterSensorPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
         const sensor = await Sensor.findByPk(id);
@@ -63,7 +63,7 @@ export const getSensorById = async (req, res, next) => {
     }
 };
 
-export const createNewSensor = async (req, res, next) => {
+export const criarSensor = async (req, res, next) => {
     try {
         const { tipo, localizacao, status, idinfraestrutura_urbana, data_proxima_manutencao } = req.body;
 
@@ -75,7 +75,7 @@ export const createNewSensor = async (req, res, next) => {
 
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))
-            return next(validationError({ status: 'Status inválido. Use online, offline ou manutencao.' }));
+            return next(validationError({ status: 'Estado inválido. Use online, offline ou manutencao.' }));
 
         if (data_proxima_manutencao) {
             const erroData = validarDataFutura(data_proxima_manutencao, 'data_proxima_manutencao');
@@ -110,7 +110,7 @@ export const atualizarSensor = async (req, res, next) => {
 
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))
-            return next(validationError({ status: 'Status inválido. Use online, offline ou manutencao.' }));
+            return next(validationError({ status: 'Estado inválido. Use online, offline ou manutencao.' }));
 
         if (data_proxima_manutencao) {
             const erroData = validarDataFutura(data_proxima_manutencao, 'data_proxima_manutencao');
@@ -155,7 +155,7 @@ export const substituirSensor = async (req, res, next) => {
 
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))
-            return next(validationError({ status: 'Status inválido. Use online, offline ou manutencao.' }));
+            return next(validationError({ status: 'Estado inválido. Use online, offline ou manutencao.' }));
 
         if (data_proxima_manutencao) {
             const erroData = validarDataFutura(data_proxima_manutencao, 'data_proxima_manutencao');
@@ -185,7 +185,7 @@ export const substituirSensor = async (req, res, next) => {
     }
 };
 
-export const deletarSensor = async (req, res, next) => {
+export const apagarSensor = async (req, res, next) => {
     try {
         const { id } = req.params;
         const sensor = await Sensor.findByPk(id);
@@ -220,7 +220,7 @@ export const notificarCalibracao = async (req, res, next) => {
 
         // Quem está a fazer a calibração (vem do JWT via verifyToken)
         const operadorId   = req.user.sub;
-        const operadorTipo = req.user.tipo;   // 'operador_municipal' ou 'administrador'
+        const operadorTipo = req.user.tipo;
 
         // 1. Verificar que o sensor existe
         const sensor = await Sensor.findByPk(id);
@@ -232,7 +232,6 @@ export const notificarCalibracao = async (req, res, next) => {
         await sensor.update(updateData);
 
         // 3. Encontrar destinatários responsáveis (gestores que devem ser informados)
-        //    O operador que faz a calibração não precisa de notificação — ele já sabe.
         const responsaveis = await Destinatarios.findAll({ where: { tipo: 'responsavel' } });
 
         if (!responsaveis.length) {
@@ -240,13 +239,13 @@ export const notificarCalibracao = async (req, res, next) => {
                 message: 'Sensor colocado em manutenção, mas não existem destinatários do tipo "responsavel" para notificar.',
                 data: { sensor: sensor.toJSON() },
                 _links: {
-                    sensor:          { href: `/sensores/${id}`, method: 'GET' },
-                    destinatarios:   { href: `/destinatarios`,  method: 'GET' }
+                    sensor:        { href: `/sensores/${id}`, method: 'GET' },
+                    destinatarios: { href: `/destinatarios`,  method: 'GET' }
                 }
             });
         }
 
-        // 4. Construir a mensagem — identifica o operador que registou a calibração
+        // 4. Construir a mensagem
         const dataTexto = data_proxima_manutencao
             ? `Data prevista: ${new Date(data_proxima_manutencao).toLocaleDateString('pt-PT')}.`
             : 'Data de conclusão a definir.';
@@ -262,7 +261,7 @@ export const notificarCalibracao = async (req, res, next) => {
         const notificacoes = await Promise.all(
             responsaveis.map(resp =>
                 Notificacao.create({
-                    idalerta:       null,               // calibração não está ligada a um alerta
+                    idalerta:       null,
                     idsensor:       sensor.idsensor,
                     iddestinatario: resp.iddestinatario,
                     canal,
@@ -274,15 +273,15 @@ export const notificarCalibracao = async (req, res, next) => {
         );
 
         return res.status(201).json({
-            message: `Calibração registada pelo operador #${operadorId}. ${notificacoes.length} responsável notificado.`,
+            message: `Calibração registada pelo operador #${operadorId}. ${notificacoes.length} responsável(is) notificado(s).`,
             data: {
                 sensor:       sensor.toJSON(),
                 notificacoes: notificacoes.map(n => n.toJSON())
             },
             _links: {
-                sensor:          { href: `/sensores/${id}`, method: 'GET' },
-                notificacoes:    { href: `/notificacoes`,   method: 'GET' },
-                reporOnline:     { href: `/sensores/${id}`, method: 'PATCH' }
+                sensor:       { href: `/sensores/${id}`, method: 'GET' },
+                notificacoes: { href: `/notificacoes`,   method: 'GET' },
+                reporOnline:  { href: `/sensores/${id}`, method: 'PATCH' }
             }
         });
     } catch (error) {
