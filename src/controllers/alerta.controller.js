@@ -223,9 +223,18 @@ export const apagarAlerta = async (req, res, next) => {
 
         if (!alerta) return next(notFoundError('alerta', id));
 
+        // ATENÇÃO — relações SEM onDelete:CASCADE (bloqueiam se existirem registos dependentes):
+        //   • Notificacao       → notificacoes associadas a este alerta
+        //   • Relatorio         → relatórios gerados para este alerta
+        //   • AlertaPlanoAcao   → associações alerta↔plano ainda activas
+        // Se existirem, a BD lança SequelizeForeignKeyConstraintError → devolvemos 409 Conflict
         await alerta.destroy();
         return res.status(204).send();
     } catch (error) {
-        next(genericError('Erro ao apagar alerta'));
+        // SequelizeForeignKeyConstraintError: o alerta ainda tem registos dependentes
+        // (notificações, relatórios ou planos de acção associados)
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: este alerta tem notificações, relatórios ou planos de acção associados. Remova-os primeiro.'));
+        return next(genericError('Erro ao apagar alerta'));
     }
 };

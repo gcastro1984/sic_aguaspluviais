@@ -1,6 +1,19 @@
     // ─── CONFIG ────────────────────────────────────────────
     const API = 'http://localhost:3001';
 
+    // ─── SIDEBAR RESPONSIVA ────────────────────────────────
+    // Abre a sidebar em mobile (< 992px) e mostra o overlay
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-overlay').classList.toggle('visible');
+    }
+
+    // Fecha a sidebar (chamado ao clicar no overlay ou ao navegar)
+    function fecharSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebar-overlay').classList.remove('visible');
+    }
+
     // ─── NAV ───────────────────────────────────────────────
     let currentSection = 'dashboard';
 
@@ -10,6 +23,9 @@
       document.getElementById('section-' + section)?.classList.add('active');
       document.getElementById('nav-' + section)?.classList.add('active');
       currentSection = section;
+
+      // Em mobile, fecha a sidebar automaticamente ao navegar para outra secção
+      if (window.innerWidth < 992) fecharSidebar();
 
       const loaders = {
         sensores:       loadSensores,
@@ -557,11 +573,11 @@
     // ─── DESTINATÁRIOS ─────────────────────────────────────
     async function loadDestinatarios() {
       const tbody = document.getElementById('destin-tbody');
-      tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const r = await apiCall('GET', '/destinatarios');
-      if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
+      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.message || r.status)); return; }
       const list = getList(r);
-      if (!list.length) { tbody.innerHTML = emptyRow(7, 'Nenhum destinatário.'); return; }
+      if (!list.length) { tbody.innerHTML = emptyRow(6, 'Nenhum destinatário.'); return; }
       tbody.innerHTML = list.map(d => `
     <tr>
       <td class="td-mono">#${d.iddestinatario || d.id || '—'}</td>
@@ -569,7 +585,6 @@
       <td>${d.email || '—'}</td>
       <td class="td-mono">${d.contato || '—'}</td>
       <td>${d.tipo || '—'}</td>
-      <td>${estadoBadge(d.ativo ? 'online' : 'offline')}</td>
       <td>${actions(`''`, `apagarDestinatario(${d.iddestinatario || d.id})`)}</td>
     </tr>
   `).join('');
@@ -602,17 +617,28 @@
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
       const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Sem notificações.'); return; }
-      tbody.innerHTML = list.map(n => `
-    <tr>
-      <td class="td-mono">#${n.idnotificacao || n.id || '—'}</td>
-      <td>#${n.idalerta || '—'}</td>
-      <td>#${n.iddestinatario || '—'}</td>
-      <td>${n.canal || '—'}</td>
-      <td>${estadoBadge(n.estado_envio)}</td>
-      <td class="td-mono">${fmtDate(n.data_envio || n.createdAt)}</td>
-      <td>${actions(`''`, `apagarNotificacao(${n.idnotificacao || n.id})`)}</td>
-    </tr>
-  `).join('');
+      tbody.innerHTML = list.map(n => {
+        // Destinatário: mostra nome se disponível, ID se não, "Admin" se null (notificação automática a administrador)
+        const dest = n.Destinatario?.nome
+          ? n.Destinatario.nome
+          : n.iddestinatario
+            ? `#${n.iddestinatario}`
+            : '<span style="color:var(--accent);font-size:.7rem">Admin</span>';
+        // Mensagem truncada para não ocupar demasiado espaço na tabela
+        const msg = n.mensagem
+          ? `<span title="${n.mensagem}">${n.mensagem.substring(0, 50)}${n.mensagem.length > 50 ? '…' : ''}</span>`
+          : '—';
+        return `
+        <tr>
+          <td class="td-mono">#${n.idnotificacao || '—'}</td>
+          <td class="td-mono">${n.idalerta ? `#${n.idalerta}` : '—'}</td>
+          <td>${dest}</td>
+          <td>${n.canal || '—'}</td>
+          <td>${estadoBadge(n.estado_envio)}</td>
+          <td class="td-mono">${fmtDate(n.data_envio)}</td>
+          <td style="max-width:180px;overflow:hidden">${msg}</td>
+        </tr>`;
+      }).join('');
     }
 
     async function criarNotificacao() {
@@ -638,23 +664,29 @@
     // ─── PLANOS ────────────────────────────────────────────
     async function loadPlanos() {
       const tbody = document.getElementById('planos-tbody');
-      tbody.innerHTML = `<tr><td colspan="8"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
       const r = await apiCall('GET', '/alertas-planos');
-      if (!r.ok) { tbody.innerHTML = errRow(8, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      if (!r.ok) { tbody.innerHTML = errRow(9, 'Erro: ' + (r.data.error_description || r.status)); return; }
       const list = getList(r);
-      if (!list.length) { tbody.innerHTML = emptyRow(8, 'Sem planos associados.'); return; }
+      if (!list.length) { tbody.innerHTML = emptyRow(9, 'Sem planos associados.'); return; }
       tbody.innerHTML = list.map(p => {
-        const infraNome    = p.alerta?.infraestrutura_urbana?.nome || '—';
+        // infra_nome vem directamente do backend (campo calculado para evitar nested access)
+        const infraNome    = p.infra_nome                         || '—';
         const descPlano    = p.plano_acao?.descricao              || `Plano #${p.idplano_acao}`;
         const destinatario = p.plano_acao?.tipo_destinatario       || '—';
+        // data_inicio preenchida automaticamente ao passar para 'ativo'
+        // data_conclusao preenchida automaticamente ao passar para 'concluido'
+        const dataInicio    = p.data_inicio    ? fmtDate(p.data_inicio)    : '—';
+        const dataConclusao = p.data_conclusao ? fmtDate(p.data_conclusao) : '—';
         return `
     <tr>
       <td class="td-mono">#${p.idalerta || '—'}</td>
       <td title="${infraNome}">${infraNome}</td>
-      <td title="${descPlano}">${descPlano}</td>
-      <td><span class="badge">${destinatario}</span></td>
+      <td title="${descPlano}" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${descPlano}</td>
+      <td><span class="badge badge-info">${destinatario}</span></td>
       <td>${estadoBadge(p.estado)}</td>
-      <td class="td-mono">${fmtDate(p.data_inicio || p.createdAt)}</td>
+      <td class="td-mono">${dataInicio}</td>
+      <td class="td-mono">${dataConclusao}</td>
       <td>${p.observacoes || '—'}</td>
       <td style="display:flex;gap:.4rem">
         <button class="btn btn-sm btn-outline" title="Alterar estado" onclick="abrirEditarEstadoPlano(${p.idalerta},${p.idplano_acao},'${p.estado}')"><i class="fa fa-pen"></i></button>
@@ -767,23 +799,18 @@
     async function loadRelatorios() {
       const tbody = document.getElementById('relatorios-tbody');
       if (!tbody) return;
-      tbody.innerHTML = `<tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
-      const idutil  = document.getElementById('filter-rel-utilizador')?.value;
+      tbody.innerHTML = `<tr><td colspan="4"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      // Filtro opcional por alerta — ordenação por data feita no backend (DESC)
       const idalert = document.getElementById('filter-rel-alerta')?.value;
-      const params  = [];
-      if (idutil)  params.push(`idutilizador=${idutil}`);
-      if (idalert) params.push(`idalerta=${idalert}`);
-      const path = '/relatorios' + (params.length ? '?' + params.join('&') : '');
+      const path = '/relatorios' + (idalert ? `?idalerta=${idalert}` : '');
       const r = await apiCall('GET', path);
-      if (!r.ok) { tbody.innerHTML = errRow(6, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      if (!r.ok) { tbody.innerHTML = errRow(4, 'Erro: ' + (r.data.error_description || r.status)); return; }
       const list = getList(r);
-      if (!list.length) { tbody.innerHTML = emptyRow(6, 'Nenhum relatório encontrado.'); return; }
+      if (!list.length) { tbody.innerHTML = emptyRow(4, 'Nenhum relatório encontrado.'); return; }
       tbody.innerHTML = list.map(rel => `
         <tr>
-          <td class="td-mono">#${rel.idrelatorio || '—'}</td>
-          <td class="td-mono">${rel.Utilizador?.email || rel.idutilizador || '—'}</td>
           <td class="td-mono">${rel.idalerta ? '#' + rel.idalerta : '—'}</td>
-          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${rel.descricao || ''}">${rel.descricao || '—'}</td>
+          <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${rel.descricao || ''}">${rel.descricao || '—'}</td>
           <td class="td-mono">${fmtDate(rel.data)}</td>
           <td>${actions(`editRelatorio(${rel.idrelatorio})`, `apagarRelatorio(${rel.idrelatorio})`)}</td>
         </tr>
@@ -876,70 +903,77 @@
 
     // ─── ENDPOINTS EXPLORER ────────────────────────────────
     const ENDPOINTS = [
-      // AUTH
-      { method: 'POST', path: '/utilizadores/login', desc: 'Autenticação', body: { email: 'admin@example.com', password: 'pass' } },
-      { method: 'POST', path: '/utilizadores', desc: 'Criar utilizador (admin)', body: { email: 'novo@example.com', password: 'pass', tipo: 'operador_municipal' } },
-      { method: 'GET', path: '/utilizadores', desc: 'Listar utilizadores (admin)', body: null },
-      { method: 'GET', path: '/utilizadores/{id}', desc: 'Obter utilizador', body: null },
-      { method: 'DELETE', path: '/utilizadores/{id}', desc: 'Apagar utilizador (admin)', body: null },
+      // AUTENTICAÇÃO / UTILIZADORES
+      { method: 'POST',   path: '/utilizadores/login',   desc: 'Login — devolve JWT',                      body: { email: 'admin@example.com', password: 'pass' } },
+      { method: 'POST',   path: '/utilizadores',         desc: 'Criar utilizador',                         body: { email: 'novo@example.com', password: 'pass', tipo: 'operador_municipal' } },
+      { method: 'GET',    path: '/utilizadores/{id}',    desc: 'Obter utilizador por ID',                  body: null },
+      { method: 'DELETE', path: '/utilizadores/{id}',    desc: 'Apagar utilizador (admin)',                 body: null },
       // SENSORES
-      { method: 'GET', path: '/sensores', desc: 'Listar sensores', body: null },
-      { method: 'GET', path: '/sensores/{id}', desc: 'Sensor por ID', body: null },
-      { method: 'POST', path: '/sensores', desc: 'Criar sensor', body: { tipo: 'pluviometro', localizacao: 'Porto', status: 'online' } },
-      { method: 'PATCH', path: '/sensores/{id}', desc: 'Atualizar sensor', body: { status: 'offline' } },
-      { method: 'DELETE', path: '/sensores/{id}', desc: 'Apagar sensor', body: null },
+      { method: 'GET',    path: '/sensores',             desc: 'Listar sensores',                          body: null },
+      { method: 'GET',    path: '/sensores/{id}',        desc: 'Sensor por ID',                            body: null },
+      { method: 'POST',   path: '/sensores',             desc: 'Criar sensor',                             body: { tipo: 'nivel_agua', localizacao: 'Porto', status: 'online', idinfraestrutura_urbana: 1 } },
+      { method: 'PATCH',  path: '/sensores/{id}',        desc: 'Atualizar sensor (estado, localização...)',  body: { status: 'manutencao' } },
+      { method: 'DELETE', path: '/sensores/{id}',        desc: 'Apagar sensor',                            body: null },
       // LEITURAS
-      { method: 'POST', path: '/leituras', desc: 'Criar leitura', body: { idsensor: 1, precipitacao: 12.5, caudal: 0.45, nivel_agua: 0.75 } },
-      { method: 'GET', path: '/leituras', desc: 'Listar leituras', body: null },
-      { method: 'GET', path: '/leituras/{id}', desc: 'Leitura por ID', body: null },
+      { method: 'GET',    path: '/leituras',             desc: 'Listar todas as leituras (?page=&limit=)',  body: null },
+      { method: 'GET',    path: '/leituras/sensor/{idsensor}', desc: 'Leituras de um sensor específico',   body: null },
+      { method: 'GET',    path: '/leituras/{id}',        desc: 'Leitura por ID',                           body: null },
+      { method: 'POST',   path: '/leituras',             desc: 'Registar leitura (pode gerar alerta)',      body: { idsensor: 1, tipo_variavel: 'nivel_agua', valor: 75.5, unidade: '%', data_observacao: new Date().toISOString() } },
+      { method: 'DELETE', path: '/leituras/{id}',        desc: 'Apagar leitura',                           body: null },
       // ALERTAS
-      { method: 'GET', path: '/alertas', desc: 'Listar alertas (?estado=ativo)', body: null },
-      { method: 'GET', path: '/alertas/{id}', desc: 'Obter alerta por ID', body: null },
-      { method: 'POST', path: '/alertas', desc: 'Criar alerta', body: { idleitura_sensor: 1 } },
-      { method: 'PATCH', path: '/alertas/{id}', desc: 'Atualizar alerta', body: { estado: 'resolvido' } },
-      { method: 'DELETE', path: '/alertas/{id}', desc: 'Apagar alerta', body: null },
+      { method: 'GET',    path: '/alertas',              desc: 'Listar alertas (?estado=ativo&nivel=2)',    body: null },
+      { method: 'GET',    path: '/alertas/{id}',         desc: 'Alerta por ID',                            body: null },
+      { method: 'POST',   path: '/alertas',              desc: 'Criar alerta manualmente',                  body: { idnivel_alerta: 2, idarea_risco: 1, descricao: 'Nível elevado' } },
+      { method: 'PATCH',  path: '/alertas/{id}',         desc: 'Atualizar alerta',                         body: { estado: 'resolvido' } },
+      { method: 'DELETE', path: '/alertas/{id}',         desc: 'Apagar alerta',                            body: null },
       // ÁREAS DE RISCO
-      { method: 'GET', path: '/areas-risco', desc: 'Listar áreas (?vulnerabilidade=alta)', body: null },
-      { method: 'GET', path: '/areas-risco/{id}', desc: 'Área por ID', body: null },
-      { method: 'POST', path: '/areas-risco', desc: 'Criar área de risco', body: { nome: 'Zona Norte', nivel_vulnerabilidade: 'alta' } },
-      { method: 'PATCH', path: '/areas-risco/{id}', desc: 'Atualizar área', body: { nivel_vulnerabilidade: 'media' } },
-      { method: 'DELETE', path: '/areas-risco/{id}', desc: 'Apagar área', body: null },
+      { method: 'GET',    path: '/areas-risco',          desc: 'Listar áreas (?vulnerabilidade=1-5)',       body: null },
+      { method: 'GET',    path: '/areas-risco/{id}',     desc: 'Área de risco por ID',                     body: null },
+      { method: 'POST',   path: '/areas-risco',          desc: 'Criar área de risco',                      body: { nome: 'Zona Ribeirinha', localizacao: 'Porto Norte', vulnerabilidade_base: 3 } },
+      { method: 'PATCH',  path: '/areas-risco/{id}',     desc: 'Atualizar área de risco',                  body: { vulnerabilidade_base: 4 } },
+      { method: 'DELETE', path: '/areas-risco/{id}',     desc: 'Apagar área de risco',                     body: null },
       // INFRAESTRUTURAS
-      { method: 'GET', path: '/infraestruturas', desc: 'Listar infraestruturas (?tipo=bueiro&idarea_risco=1)', body: null },
-      { method: 'GET', path: '/infraestruturas/{id}', desc: 'Infraestrutura por ID', body: null },
-      { method: 'POST', path: '/infraestruturas', desc: 'Criar infraestrutura', body: { nome: 'Bueiro A', tipo: 'bueiro' } },
-      { method: 'PATCH', path: '/infraestruturas/{id}', desc: 'Atualizar infraestrutura', body: { estado: 'manutencao' } },
-      { method: 'DELETE', path: '/infraestruturas/{id}', desc: 'Apagar infraestrutura', body: null },
-      // PREVISÕES
-      { method: 'GET', path: '/previsoes', desc: 'Listar previsões (?idarea_risco=1&confianca_minima=0.7)', body: null },
-      { method: 'GET', path: '/previsoes/{id}', desc: 'Previsão por ID', body: null },
-      { method: 'POST', path: '/previsoes', desc: 'Criar previsão', body: { idarea_risco: 1, precipitacao_prevista: 25.0, confianca: 0.85 } },
-      { method: 'PATCH', path: '/previsoes/{id}', desc: 'Atualizar previsão', body: { confianca: 0.9 } },
-      { method: 'DELETE', path: '/previsoes/{id}', desc: 'Apagar previsão', body: null },
-      // ALERTAS-PLANOS
-      { method: 'GET', path: '/alertas-planos', desc: 'Listar associações (?estado=ativo&idalerta=1)', body: null },
-      { method: 'GET', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Por IDs compostos', body: null },
-      { method: 'POST', path: '/alertas-planos', desc: 'Associar alerta-plano', body: { idalerta: 1, idplano_acao: 1, estado: 'ativo', responsavel: 'João' } },
-      { method: 'PATCH', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Atualizar associação', body: { estado: 'concluido' } },
-      { method: 'DELETE', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Remover associação', body: null },
+      { method: 'GET',    path: '/infraestruturas',      desc: 'Listar infraestruturas (?idarea_risco=&tipo=)', body: null },
+      { method: 'GET',    path: '/infraestruturas/{id}', desc: 'Infraestrutura por ID',                    body: null },
+      { method: 'POST',   path: '/infraestruturas',      desc: 'Criar infraestrutura',                     body: { nome: 'Bueiro Central', tipo: 'bueiro', localizacao: 'Rua A', idarea_risco: 1 } },
+      { method: 'PATCH',  path: '/infraestruturas/{id}', desc: 'Atualizar infraestrutura',                 body: { tipo: 'vala' } },
+      { method: 'DELETE', path: '/infraestruturas/{id}', desc: 'Apagar infraestrutura',                    body: null },
+      // PREVISÕES METEOROLÓGICAS
+      { method: 'GET',    path: '/previsoes',            desc: 'Listar previsões (?idarea_risco=1)',        body: null },
+      { method: 'GET',    path: '/previsoes/{id}',       desc: 'Previsão por ID',                          body: null },
+      { method: 'POST',   path: '/previsoes',            desc: 'Criar previsão meteorológica',              body: { idarea_risco: 1, precipitacao_prevista: 25.0, confianca: 0.85, horizonte_horas: 24 } },
+      { method: 'PATCH',  path: '/previsoes/{id}',       desc: 'Atualizar previsão',                       body: { confianca: 0.9 } },
+      { method: 'DELETE', path: '/previsoes/{id}',       desc: 'Apagar previsão',                          body: null },
       // PLANOS DE AÇÃO
-      { method: 'GET', path: '/planos-acao', desc: 'Listar planos de ação', body: null },
-      { method: 'GET', path: '/planos-acao/{id}', desc: 'Plano por ID', body: null },
-      { method: 'POST', path: '/planos-acao', desc: 'Criar plano de ação', body: { descricao: 'Evacuação Zona A', tipo_destinatario: 'tecnico' } },
-      { method: 'PATCH', path: '/planos-acao/{id}', desc: 'Atualizar plano', body: { descricao: 'Nova descrição' } },
-      { method: 'DELETE', path: '/planos-acao/{id}', desc: 'Apagar plano', body: null },
+      { method: 'GET',    path: '/planos-acao',          desc: 'Listar planos de ação',                    body: null },
+      { method: 'GET',    path: '/planos-acao/{id}',     desc: 'Plano de ação por ID',                     body: null },
+      { method: 'POST',   path: '/planos-acao',          desc: 'Criar plano de ação',                      body: { descricao: 'Evacuação Zona A', tipo_destinatario: 'tecnico' } },
+      { method: 'PATCH',  path: '/planos-acao/{id}',     desc: 'Atualizar plano de ação',                  body: { descricao: 'Nova descrição' } },
+      { method: 'DELETE', path: '/planos-acao/{id}',     desc: 'Apagar plano de ação',                     body: null },
+      // ALERTA ↔ PLANO DE AÇÃO
+      { method: 'GET',    path: '/alertas-planos',       desc: 'Listar associações (?estado=&idalerta=)',   body: null },
+      { method: 'GET',    path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Associação por IDs',   body: null },
+      { method: 'POST',   path: '/alertas-planos',       desc: 'Criar associação alerta-plano',            body: { idalerta: 1, idplano_acao: 1, estado: 'pendente', responsavel: 'João Silva' } },
+      { method: 'PATCH',  path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Atualizar associação', body: { estado: 'concluido' } },
+      { method: 'DELETE', path: '/alertas-planos/{idalerta}/{idplano_acao}', desc: 'Remover associação',   body: null },
       // DESTINATÁRIOS
-      { method: 'GET', path: '/destinatarios', desc: 'Listar destinatários', body: null },
-      { method: 'GET', path: '/destinatarios/{id}', desc: 'Destinatário por ID', body: null },
-      { method: 'POST', path: '/destinatarios', desc: 'Criar destinatário', body: { nome: 'João Silva', email: 'joao@ex.pt', tipo: 'tecnico' } },
-      { method: 'PATCH', path: '/destinatarios/{id}', desc: 'Atualizar destinatário', body: { contato: '+351912345678' } },
-      { method: 'DELETE', path: '/destinatarios/{id}', desc: 'Apagar destinatário', body: null },
+      { method: 'GET',    path: '/destinatarios',        desc: 'Listar destinatários (?tipo=)',             body: null },
+      { method: 'GET',    path: '/destinatarios/{id}',   desc: 'Destinatário por ID',                      body: null },
+      { method: 'POST',   path: '/destinatarios',        desc: 'Criar destinatário',                       body: { nome: 'João Silva', email: 'joao@ex.pt', tipo: 'tecnico' } },
+      { method: 'PATCH',  path: '/destinatarios/{id}',   desc: 'Atualizar destinatário',                   body: { contato: '+351912345678' } },
+      { method: 'DELETE', path: '/destinatarios/{id}',   desc: 'Apagar destinatário',                      body: null },
       // NOTIFICAÇÕES
-      { method: 'GET', path: '/notificacoes', desc: 'Listar notificações', body: null },
-      { method: 'GET', path: '/notificacoes/{id}', desc: 'Notificação por ID', body: null },
-      { method: 'POST', path: '/notificacoes', desc: 'Criar notificação', body: { idalerta: 1, iddestinatario: 1, canal: 'email', estado_envio: 'pendente' } },
-      { method: 'PATCH', path: '/notificacoes/{id}', desc: 'Atualizar notificação', body: { estado_envio: 'enviado' } },
-      { method: 'DELETE', path: '/notificacoes/{id}', desc: 'Apagar notificação', body: null },
+      { method: 'GET',    path: '/notificacoes',         desc: 'Listar notificações (?iddestinatario=&idalerta=&estado=)', body: null },
+      { method: 'GET',    path: '/notificacoes/{id}',    desc: 'Notificação por ID',                       body: null },
+      { method: 'POST',   path: '/notificacoes',         desc: 'Notificar destinatário específico',         body: { iddestinatario: 1, canal: 'email', estado_envio: 'pendente', mensagem: 'Texto da notificação' } },
+      { method: 'POST',   path: '/notificacoes',         desc: 'Notificar responsáveis por sensor',         body: { idsensor: 1, canal: 'email', observacoes: 'Calibração prevista' } },
+      { method: 'PATCH',  path: '/notificacoes/{id}',    desc: 'Atualizar estado da notificação',           body: { estado_envio: 'enviado' } },
+      { method: 'DELETE', path: '/notificacoes/{id}',    desc: 'Apagar notificação',                       body: null },
+      // RELATÓRIOS
+      { method: 'GET',    path: '/relatorios',           desc: 'Listar relatórios (?idalerta=&idutilizador=)', body: null },
+      { method: 'GET',    path: '/relatorios/{id}',      desc: 'Relatório por ID',                         body: null },
+      { method: 'POST',   path: '/relatorios',           desc: 'Criar relatório',                          body: { descricao: 'Análise de ocorrência', idalerta: 1 } },
+      { method: 'DELETE', path: '/relatorios/{id}',      desc: 'Apagar relatório',                         body: null },
     ];
 
     function renderEndpoints() {

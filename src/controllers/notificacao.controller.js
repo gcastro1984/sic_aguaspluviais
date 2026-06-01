@@ -1,4 +1,4 @@
-import { Notificacao, Alerta, Destinatarios } from '../models/db.config.js';
+import { Notificacao, Alerta, Destinatarios, Sensor } from '../models/db.config.js';
 import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
 
 const notifLinks = (id) => ({
@@ -9,23 +9,56 @@ const notifLinks = (id) => ({
 
 export const criarNotificacao = async (req, res, next) => {
     try {
-        const { idalerta, iddestinatario, canal, data_envio, estado_envio, data_confirmacao, mensagem, erro_envio } = req.body;
+        const { idalerta, iddestinatario, idsensor, canal, data_envio, estado_envio, data_confirmacao, mensagem, observacoes, erro_envio } = req.body;
 
-        const missingFields = [];
-        if (!iddestinatario) missingFields.push('iddestinatario');
-        if (!canal) missingFields.push('canal');
-        if (!estado_envio) missingFields.push('estado_envio');
-        if (missingFields.length) return next(missingFieldsValidationError(missingFields));
+        if (!canal) return next(missingFieldsValidationError(['canal']));
 
         const canaisValidos = ['email', 'sms', 'push'];
         if (!canaisValidos.includes(canal))
             return next(validationError({ canal: `Canal inválido. Use: ${canaisValidos.join(', ')}` }));
 
+        // ── MODO SENSOR: notifica automaticamente todos os destinatários "responsavel" ──
+        if (idsensor) {
+            const sensor = await Sensor.findByPk(idsensor);
+            if (!sensor) return next(notFoundError('sensor', idsensor));
+
+            const responsaveis = await Destinatarios.findAll({ where: { tipo: 'responsavel' } });
+            if (!responsaveis.length)
+                return next(validationError({ idsensor: 'Não existem destinatários do tipo "responsavel" activos' }));
+
+            const mensagemFinal = mensagem ||
+                `[SENSOR #${sensor.idsensor}] Notificação para o sensor ${sensor.tipo} em "${sensor.localizacao}".` +
+                (observacoes ? ` Observações: ${observacoes}` : '');
+
+            const notificacoes = await Promise.all(
+                responsaveis.map(r => Notificacao.create({
+                    idalerta:       idalerta || null,
+                    idsensor:       sensor.idsensor,
+                    iddestinatario: r.iddestinatario,
+                    canal,
+                    estado_envio:   'pendente',
+                    data_envio:     data_envio || new Date(),
+                    mensagem:       mensagemFinal
+                }))
+            );
+
+            return res.status(201).json({
+                message: `${notificacoes.length} notificação(ões) criada(s) para os responsáveis`,
+                data: notificacoes.map(n => ({ ...n.toJSON(), _links: notifLinks(n.idnotificacao) })),
+                _links: { allNotificacoes: { href: '/notificacoes', method: 'GET' } }
+            });
+        }
+
+        // ── MODO DIRECTO: notificação para um destinatário específico ──
+        const missingFields = [];
+        if (!iddestinatario) missingFields.push('iddestinatario');
+        if (!estado_envio)   missingFields.push('estado_envio');
+        if (missingFields.length) return next(missingFieldsValidationError(missingFields));
+
         const estadosEnvioValidos = ['pendente', 'enviado', 'falhou'];
         if (!estadosEnvioValidos.includes(estado_envio))
             return next(validationError({ estado_envio: `Estado inválido. Use: ${estadosEnvioValidos.join(', ')}` }));
 
-        // idalerta é opcional (notificações de calibração não têm alerta associado)
         if (idalerta) {
             const alerta = await Alerta.findByPk(idalerta);
             if (!alerta) return next(notFoundError('alerta', idalerta));

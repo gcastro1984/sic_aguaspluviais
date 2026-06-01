@@ -68,8 +68,8 @@ export const obterAlertasPlanos = async (req, res, next) => {
             include: [
                 {
                     model: Alerta,
-                    attributes: ['idalerta', 'descricao', 'estado', 'idinfraestrutura_urbana'],
-                    include: [{ model: InfraestruturaUrbana, attributes: ['idinfraestrutura_urbana', 'nome'] }]
+                    attributes: ['idalerta', 'descricao', 'estado', 'idinfraestrutura_urbana']
+                    // sem nested include — buscamos o nome da infra separadamente abaixo
                 },
                 { model: PlanoAcao, attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] }
             ],
@@ -77,7 +77,34 @@ export const obterAlertasPlanos = async (req, res, next) => {
             offset
         });
 
-        const data  = rows.map(r => ({ ...r.toJSON(), _links: apaLinks(r.idalerta, r.idplano_acao) }));
+        // Recolhe os IDs de infraestrutura únicos presentes nos alertas
+        // .filter(Boolean) remove null/undefined
+        // .filter((id, i, self) => self.indexOf(id) === i) remove duplicados
+        const infraIds = rows
+            .map(r => r.alerta?.idinfraestrutura_urbana)
+            .filter(Boolean)
+            .filter((id, i, self) => self.indexOf(id) === i);
+
+        // Busca as infraestruturas de uma só vez (evita N queries)
+        const infraMap = {};
+        if (infraIds.length > 0) {
+            const infraList = await InfraestruturaUrbana.findAll({
+                where: { idinfraestrutura_urbana: infraIds },
+                attributes: ['idinfraestrutura_urbana', 'nome']
+            });
+            infraList.forEach(i => { infraMap[i.idinfraestrutura_urbana] = i.nome; });
+        }
+
+        // Adiciona infra_nome directamente no nível raiz de cada registo
+        const data = rows.map(r => {
+            const json = r.toJSON();
+            const infraId = json.alerta?.idinfraestrutura_urbana;
+            return {
+                ...json,
+                infra_nome: infraId ? (infraMap[infraId] || null) : null,
+                _links: apaLinks(r.idalerta, r.idplano_acao)
+            };
+        });
         const pages = Math.ceil(count / limit);
 
         return res.status(count > limit ? 206 : 200).json({
@@ -129,15 +156,33 @@ export const atualizarAlertaPlanoAcao = async (req, res, next) => {
         if (estado !== undefined && !estadosValidos.includes(estado))
             return next(validationError({ estado: `Estado inválido. Use: ${estadosValidos.join(', ')}` }));
 
+        // Impede re-activação: se já está 'ativo', não pode voltar a 'ativo'
+        // Evita que a data_inicio seja sobrescrita acidentalmente
+        if (estado === 'ativo' && apa.estado === 'ativo')
+            return next(validationError({ estado: 'O plano já se encontra ativo. data_inicio não pode ser alterada.' }));
+
         if (data_inicio && data_conclusao && new Date(data_conclusao) < new Date(data_inicio))
             return next(validationError({ data_conclusao: 'data_conclusao não pode ser anterior a data_inicio' }));
 
         const updateData = {};
         if (estado !== undefined) updateData.estado = estado;
         if (responsavel !== undefined) updateData.responsavel = responsavel;
-        if (data_inicio !== undefined) updateData.data_inicio = data_inicio;
-        if (data_conclusao !== undefined) updateData.data_conclusao = data_conclusao;
         if (observacoes !== undefined) updateData.observacoes = observacoes;
+
+        // Datas manuais têm prioridade; se não forem enviadas, o sistema define automaticamente
+        if (data_inicio !== undefined) {
+            updateData.data_inicio = data_inicio;
+        } else if (estado === 'ativo' && !apa.data_inicio) {
+            // Registo automático da data de início quando o plano passa para activo
+            updateData.data_inicio = new Date();
+        }
+
+        if (data_conclusao !== undefined) {
+            updateData.data_conclusao = data_conclusao;
+        } else if (estado === 'concluido' && !apa.data_conclusao) {
+            // Registo automático da data de conclusão quando o plano é concluído
+            updateData.data_conclusao = new Date();
+        }
 
         await apa.update(updateData);
 

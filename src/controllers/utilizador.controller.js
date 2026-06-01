@@ -124,10 +124,26 @@ export const obterUtilizadores = async (req, res, next) => {
 // DELETE /utilizadores/:id  – apenas admin
 export const apagarUtilizador = async (req, res, next) => {
     try {
-        const deleted = await Utilizador.destroy({ where: { idutilizador: req.params.id } });
-        if (!deleted) return next(notFoundError('utilizador', req.params.id));
+        const utilizador = await Utilizador.findByPk(req.params.id);
+        if (!utilizador) return next(notFoundError('utilizador', req.params.id));
+
+        // Regra de negócio: garantir que o sistema nunca fica sem administrador
+        // Se o utilizador a apagar é administrador, verificar se existe pelo menos mais um
+        if (utilizador.tipo === 'administrador') {
+            const totalAdmins = await Utilizador.count({ where: { tipo: 'administrador' } });
+            if (totalAdmins <= 1)
+                return next(conflictError('Não é possível apagar: é o único administrador do sistema. Crie outro administrador antes de apagar este.'));
+        }
+
+        // ATENÇÃO — relação SEM onDelete:CASCADE (bloqueia se existirem registos dependentes):
+        //   • Relatorio → relatórios criados por este utilizador
+        // Se existirem, a BD lança SequelizeForeignKeyConstraintError → devolvemos 409 Conflict
+        await utilizador.destroy();
         return res.status(204).send();
     } catch (error) {
+        // SequelizeForeignKeyConstraintError: o utilizador tem relatórios associados
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: este utilizador tem relatórios associados. Remova-os primeiro.'));
         return next(genericError(error.message));
     }
 };

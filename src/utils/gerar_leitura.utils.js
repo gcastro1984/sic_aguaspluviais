@@ -56,6 +56,11 @@ async function enviarLeitura(leitura) {
 }
 
 
+// Pausa em milissegundos entre pedidos — evita sobrecarregar o servidor
+function esperar(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // execução
 async function main() {
   // cache de sensores verificados para não repetir chamadas
@@ -74,8 +79,23 @@ async function main() {
       continue; // ignorar sensores offline/inexistentes
     }
 
-    const resultado = await enviarLeitura(limparLeitura(leitura));
-    if (resultado) enviadas++; else erros++;
+    try {
+      const resultado = await enviarLeitura(limparLeitura(leitura));
+      if (resultado) enviadas++; else erros++;
+    } catch (err) {
+      // ECONNRESET: o servidor cortou a ligação (sobrecarga) — regista e continua
+      if (err.cause?.code === 'ECONNRESET' || err.message?.includes('fetch failed')) {
+        console.warn(`[ECONNRESET] Leitura ignorada (sensor ${idsensor}) — servidor ocupado`);
+        erros++;
+        await esperar(500); // pausa extra após reset antes de continuar
+      } else {
+        throw err; // outros erros inesperados — relanças
+      }
+    }
+
+    // Pausa de 50ms entre pedidos para não sobrecarregar o servidor
+    // (o POST /leituras faz várias operações: alerta, planos, relatório, email)
+    await esperar(50);
   }
 
   console.log(`✅ Enviadas: ${enviadas} | ⏭️  Ignoradas (offline): ${ignoradas} | ❌ Erros: ${erros}`);

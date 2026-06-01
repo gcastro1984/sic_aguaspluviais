@@ -1,13 +1,15 @@
 import { Relatorio, Utilizador, Alerta } from '../models/db.config.js';
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from '../utils/error.utils.js';
 
+// Links HATEOAS — acções disponíveis para um relatório específico
 const relatorioLinks = (id) => ({
-    self:    { href: `/relatorios/${id}`, method: 'GET' },
-    replace: { href: `/relatorios/${id}`, method: 'PUT' },
-    update:  { href: `/relatorios/${id}`, method: 'PATCH' },
-    delete:  { href: `/relatorios/${id}`, method: 'DELETE' }
+    self:   { href: `/relatorios/${id}`, method: 'GET' },
+    update: { href: `/relatorios/${id}`, method: 'PATCH' },
+    delete: { href: `/relatorios/${id}`, method: 'DELETE' }
 });
 
+// POST /relatorios — cria um relatório manualmente
+// NOTA: relatórios também são criados automaticamente pelo sistema quando uma leitura gera alerta de nível > 1
 export const criarRelatorio = async (req, res, next) => {
     try {
         const { descricao, idutilizador, idalerta } = req.body;
@@ -34,6 +36,8 @@ export const criarRelatorio = async (req, res, next) => {
     }
 };
 
+// GET /relatorios — lista relatórios com paginação. Filtros: ?idutilizador= e ?idalerta=
+// Inclui dados do utilizador e do alerta associado em cada registo
 export const obterRelatorios = async (req, res, next) => {
     try {
         const { idutilizador, idalerta } = req.query;
@@ -55,6 +59,7 @@ export const obterRelatorios = async (req, res, next) => {
             where,
             limit,
             offset,
+            order: [['data', 'DESC']], // mais recentes primeiro
             include: [
                 { model: Utilizador, attributes: ['idutilizador', 'email', 'tipo'] },
                 { model: Alerta, attributes: ['idalerta', 'descricao', 'estado'], required: false }
@@ -77,6 +82,7 @@ export const obterRelatorios = async (req, res, next) => {
     }
 };
 
+// GET /relatorios/:id — devolve um relatório específico com utilizador e alerta associados
 export const obterRelatorioPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -102,6 +108,8 @@ export const obterRelatorioPorId = async (req, res, next) => {
     }
 };
 
+// PATCH /relatorios/:id — actualização parcial (só os campos enviados são alterados)
+// Valida as FKs de utilizador e alerta se forem enviadas
 export const atualizarRelatorio = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -177,6 +185,7 @@ export const substituirRelatorio = async (req, res, next) => {
     }
 };
 
+// DELETE /relatorios/:id — apaga o relatório
 export const apagarRelatorio = async (req, res, next) => {
     try {
         const { id } = req.params;

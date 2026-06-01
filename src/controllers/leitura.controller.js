@@ -1,6 +1,7 @@
-import { LeituraSensor, Sensor, Alerta, AlertaPlanoAcao, PlanoAlerta, InfraestruturaUrbana, AreaRisco, Relatorio, Utilizador } from '../models/db.config.js';
+import { LeituraSensor, Sensor, Alerta, AlertaPlanoAcao, PlanoAlerta, PlanoAcao, Destinatarios, InfraestruturaUrbana, AreaRisco, Relatorio, Utilizador, Notificacao } from '../models/db.config.js';
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
 import { verificarAlertas } from '../utils/alerta.utils.js';
+import { enviarEmailAlerta } from '../utils/email.utils.js';
 
 const QUALIDADES_VALIDAS   = ['boa', 'suspeita'];
 const TIPO_VARIAVEL_VALIDOS = ['nivel_agua', 'precipitacao', 'caudal', 'temperatura', 'humidade'];
@@ -222,7 +223,7 @@ export const criarLeitura = async (req, res, next) => {
 
         if (alertaCriado && resultado.nivel > 1) {
 
-            // 1. Buscar planos configurados para este nível em plano_alerta
+            // 1. Obter planos configurados para este nível em plano_alerta
             const planosDoNivel = await PlanoAlerta.findAll({
                 where: { idnivel_alerta: resultado.nivel }
             });
@@ -234,11 +235,12 @@ export const criarLeitura = async (req, res, next) => {
                     where: { idalerta: alertaCriado.idalerta },
                     attributes: ['idplano_acao']
                 });
-                const idsJaAssociados = new Set(jaAssociados.map(a => a.idplano_acao));
+                // array de IDs já associados — usado no .includes() abaixo para evitar duplicados
+                const idsJaAssociados = jaAssociados.map(a => a.idplano_acao);
 
                 // 3. Criar apenas os que ainda não existem
                 const novos = planosDoNivel
-                    .filter(p => !idsJaAssociados.has(p.idplano_acao))
+                    .filter(p => !idsJaAssociados.includes(p.idplano_acao))
                     .map(p => ({
                         idalerta:     alertaCriado.idalerta,
                         idplano_acao: p.idplano_acao,
@@ -275,7 +277,9 @@ export const criarLeitura = async (req, res, next) => {
             }
         }
 
-        // resposta HATEOAS
+        // ── Resposta imediata ao cliente ─────────────────────────────────────
+        // O envio de emails é demorado (SMTP) — respondemos ANTES de enviar
+        // para evitar ECONNRESET quando o cliente aguarda demasiado tempo
         const leituraResponse = {
             ...newLeitura.toJSON(),
             classificacao: resultado ? resultado.nivel : 1,
@@ -292,12 +296,112 @@ export const criarLeitura = async (req, res, next) => {
                 planos_acao_ativados: planosAssociados.map(p => p.idplano_acao)
             } : null,
             _links: {
-                allLeituras: { href: "/leituras",                              method: "GET"    },
-                self:        { href: `/leituras/${newLeitura.idleitura_sensor}`, method: "GET" },
-                delete:      { href: `/leituras/${newLeitura.idleitura_sensor}`, method: "DELETE" }
+                allLeituras: { href: '/leituras',                                method: 'GET'    },
+                self:        { href: `/leituras/${newLeitura.idleitura_sensor}`, method: 'GET'    },
+                delete:      { href: `/leituras/${newLeitura.idleitura_sensor}`, method: 'DELETE' }
             }
         };
-        return res.status(201).json(leituraResponse);
+        res.status(201).json(leituraResponse);
+
+        // ── Enviar notificações por email (background) ───────────────────────
+        // Corre após a resposta — não bloqueia o cliente
+        // Apenas quando existe alerta activo com nível > 1 (verde)
+        if (alertaCriado && resultado.nivel > 1) {
+            // IIFE async: permite que o código continue sem await
+            (async () => { try {
+                // 1. Obter planos configurados para este nível e incluir o PlanoAcao
+                //    para aceder ao tipo_destinatario de cada plano
+                const planosDoNivel = await PlanoAlerta.findAll({
+                    where: { idnivel_alerta: resultado.nivel },
+                    include: [{ model: PlanoAcao, attributes: ['idplano_acao', 'tipo_destinatario'] }]
+                });
+
+                // 2. Extrair os tipos_destinatario únicos dos planos configurados
+                //    O modelo Sequelize chama-se 'plano_acao' → chave JSON é p.plano_acao (minúsculas)
+                //    .filter((tipo, index, self) => self.indexOf(tipo) === index) remove duplicados
+                const tiposParaNotificar = planosDoNivel
+                    .map(p => p.plano_acao?.tipo_destinatario)
+                    .filter(Boolean)
+                    .filter((tipo, index, self) => self.indexOf(tipo) === index);
+
+                // 3. Obter destinatários que correspondam aos tipos dos planos
+                //    NOTA: o modelo Destinatarios não tem campo 'ativo' — filtro removido
+                const destinatarios = tiposParaNotificar.length > 0
+                    ? await Destinatarios.findAll({ where: { tipo: tiposParaNotificar } })
+                    : [];
+
+                // 4. Obter todos os utilizadores administradores
+                //    Regra: administradores recebem SEMPRE todas as notificações de alerta
+                const admins = await Utilizador.findAll({ where: { tipo: 'administrador' } });
+
+                // 5. Juntar destinatários e admins numa lista única, sem emails duplicados
+                //    iddestinatario é preenchido para Destinatarios; null para admins (Utilizador)
+                const listaDestinatarios = destinatarios.map(d => ({
+                    email:          d.email,
+                    nome:           d.nome,
+                    iddestinatario: d.iddestinatario   // FK para guardar na Notificacao
+                }));
+                const listaAdmins = admins
+                    .filter(a => a.email)
+                    .map(a => ({
+                        email:          a.email,
+                        nome:           a.email,
+                        iddestinatario: null   // admins não têm registo em Destinatarios
+                    }));
+
+                // Remove emails repetidos (caso um admin seja também destinatário)
+                const todosOsDestinatarios = [...listaDestinatarios, ...listaAdmins]
+                    .filter((item, index, self) => self.findIndex(x => x.email === item.email) === index);
+
+                if (todosOsDestinatarios.length > 0) {
+                    const mensagemEmail = `Alerta #${alertaCriado.idalerta} — ${resultado.mensagem}`;
+
+                    // 6. Enviar email e guardar notificação na BD para cada destinatário
+                    //    Promise.allSettled garante que uma falha não cancela os restantes envios
+                    const resultadosEmail = await Promise.allSettled(
+                        todosOsDestinatarios.map(dest => enviarEmailAlerta({
+                            email:       dest.email,
+                            nome:        dest.nome,
+                            idalerta:    alertaCriado.idalerta,
+                            nivel:       resultado.nivel,
+                            mensagem:    resultado.mensagem,
+                            score_risco: resultado.score_risco
+                        }))
+                    );
+
+                    // 7. Guardar cada notificação na BD com o estado do envio
+                    //    (enviado ou falhou) — para consulta no frontend
+                    await Promise.allSettled(
+                        todosOsDestinatarios.map((dest, i) => {
+                            const sucesso = resultadosEmail[i].status === 'fulfilled';
+                            return Notificacao.create({
+                                idalerta:       alertaCriado.idalerta,
+                                iddestinatario: dest.iddestinatario,   // null para admins
+                                canal:          'email',
+                                estado_envio:   sucesso ? 'enviado' : 'falhou',
+                                data_envio:     new Date(),
+                                mensagem:       mensagemEmail,
+                                erro_envio:     sucesso ? null : resultadosEmail[i].reason?.message
+                            });
+                        })
+                    );
+
+                    // Log de erros individuais sem quebrar o fluxo principal
+                    // (EENVELOPE = email inválido | EAUTH = credenciais inválidas — ver PDF)
+                    resultadosEmail.forEach((res, i) => {
+                        if (res.status === 'rejected') {
+                            const code = res.reason?.code || 'UNKNOWN';
+                            console.warn(`[email] Falha ao enviar para ${todosOsDestinatarios[i]?.email} — código: ${code} — ${res.reason?.message}`);
+                        }
+                    });
+
+                    const enviados = resultadosEmail.filter(r => r.status === 'fulfilled').length;
+                    console.log(`[email] ${enviados}/${todosOsDestinatarios.length} email(s) enviado(s) e guardados para alerta #${alertaCriado.idalerta}`);
+                }
+            } catch (emailErr) {
+                console.error('[email] Erro inesperado no envio de notificações:', emailErr.message);
+            }})(); // fim da IIFE async de background
+        }
 
     } catch (error) {
         if (error.name === "SequelizeValidationError") {

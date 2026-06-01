@@ -1055,3 +1055,82 @@
       color: var(--muted);
       margin-left: auto;
     }
+
+    /* ══ RESPONSIVIDADE (breakpoints Bootstrap 5) ══════════ */
+
+    /* ── Botão hamburger — visível apenas em mobile ──────── */
+    .sidebar-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 0.4rem 0.6rem;
+      margin-right: 0.5rem;
+      border-radius: 6px;
+      transition: background .15s;
+    }
+    .sidebar-toggle:hover { background: var(--panel2); color: var(--accent); }
+
+    /* ── Overlay escuro atrás da sidebar em mobile ───────── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 89;
+    }
+    .sidebar-overlay.visible { display: block; }
+
+    /* ── Tablet e mobile: < 992px ────────────────────────── */
+    @media (max-width: 992px) {
+      /* Sidebar esconde-se para a esquerda */
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        z-index: 90;
+        box-shadow: 4px 0 20px rgba(0,0,0,.4);
+      }
+      /* Sidebar visível quando classe 'open' está presente */
+      .sidebar.open { transform: translateX(0); }
+
+      /* Main panel ocupa toda a largura */
+      .main-panel { margin-left: 0; }
+
+      /* Botão hamburger aparece na navbar */
+      .sidebar-toggle { display: flex; align-items: center; justify-content: center; }
+
+      /* Pesquisa fica mais estreita */
+      .navbar-search input { width: 160px; }
+
+      /* Stats grid: 2 colunas em tablet */
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+      /* Formulários: coluna única */
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid.cols-3 { grid-template-columns: 1fr; }
+      .form-group.span-2 { grid-column: span 1; }
+    }
+
+    /* ── Mobile pequeno: < 576px ─────────────────────────── */
+    @media (max-width: 576px) {
+      /* Stats: 1 coluna */
+      .stats-grid { grid-template-columns: 1fr; }
+
+      /* Page header empilha verticalmente */
+      .page-header { flex-direction: column; align-items: flex-start; }
+      .page-header > *:last-child { align-self: flex-start; }
+
+      /* Padding do main panel mais pequeno */
+      .main-panel { padding: 1rem 0.75rem; }
+
+      /* Botões em bloco */
+      .card-header { flex-wrap: wrap; gap: .5rem; }
+
+      /* Esconde pesquisa na navbar em ecrãs muito pequenos */
+      .navbar-search { display: none; }
+
+      /* Navbar brand mais compacto */
+      .navbar-brand { width: auto; border-right: none; padding: 0 0.75rem; }
+    }

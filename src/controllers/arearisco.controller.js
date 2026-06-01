@@ -1,40 +1,45 @@
 import { AreaRisco } from '../models/db.config.js';
 import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
 
+// Links HATEOAS — acções disponíveis para uma área de risco específica
 const areaLinks = (id) => ({
-    self:    { href: `/areas-risco/${id}`,  method: 'GET' },
-    replace: { href: `/areas-risco/${id}`,  method: 'PUT' },
-    update:  { href: `/areas-risco/${id}`,  method: 'PATCH' },
-    delete:  { href: `/areas-risco/${id}`,  method: 'DELETE' }
+    self:   { href: `/areas-risco/${id}`, method: 'GET' },
+    update: { href: `/areas-risco/${id}`, method: 'PATCH' },
+    delete: { href: `/areas-risco/${id}`, method: 'DELETE' }
 });
 
+// POST /areas-risco — cria uma nova área de risco
 export const criarAreaRisco = async (req, res, next) => {
     try {
         const { nome, localizacao, vulnerabilidade_base, descricao } = req.body;
 
+        // Campos obrigatórios
         if (!nome || !localizacao || vulnerabilidade_base === undefined)
             return next(missingFieldsValidationError(['nome', 'localizacao', 'vulnerabilidade_base']));
 
+        // Vulnerabilidade: inteiro entre 1 (baixo risco) e 5 (muito alto risco)
         if (vulnerabilidade_base < 1 || vulnerabilidade_base > 5)
             return next(validationError('vulnerabilidade_base deve estar entre 1 e 5'));
 
         const newAreaRisco = await AreaRisco.create({ nome, localizacao, vulnerabilidade_base, descricao: descricao || null });
 
-        return res.status(201).json({
-            _self: `/areas-risco/${newAreaRisco.idarea_risco}`
-        });
+        return res.status(201).json({ _self: `/areas-risco/${newAreaRisco.idarea_risco}` });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') next(sequelizeValidationError(error.errors));
-        else if (error.name === 'SequelizeUniqueConstraintError') next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
-        else next(genericError('Erro ao criar área de risco'));
+        if (error.name === 'SequelizeValidationError')
+            return next(sequelizeValidationError(error.errors));
+        // Nome duplicado — campo nome é único na BD
+        if (error.name === 'SequelizeUniqueConstraintError')
+            return next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
+        return next(genericError('Erro ao criar área de risco'));
     }
 };
 
-// GET /areas-risco?vulnerabilidade=3&page=1&limit=20
+// GET /areas-risco?vulnerabilidade=3&page=1&limit=20 — lista áreas com paginação
+// Filtro opcional: ?vulnerabilidade=1-5
 export const obterAreasRisco = async (req, res, next) => {
     try {
         const { vulnerabilidade } = req.query;
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
         let offset, page;
         if (req.query.offset !== undefined) {
             offset = Math.max(0, parseInt(req.query.offset) || 0);
@@ -44,6 +49,7 @@ export const obterAreasRisco = async (req, res, next) => {
             offset = (page - 1) * limit;
         }
 
+        // Valida o filtro antes de consultar a BD
         if (vulnerabilidade !== undefined) {
             const nivel = parseInt(vulnerabilidade);
             if (isNaN(nivel) || nivel < 1 || nivel > 5)
@@ -56,16 +62,18 @@ export const obterAreasRisco = async (req, res, next) => {
         const data  = rows.map(a => ({ ...a.toJSON(), _links: areaLinks(a.idarea_risco) }));
         const pages = Math.ceil(count / limit);
 
+        // 206 Partial Content se existem mais registos do que o limit (há mais páginas)
         return res.status(count > limit ? 206 : 200).json({
             data,
             pagination: { total: count, page, limit, pages },
             _links: { self: { href: '/areas-risco', method: 'GET' }, create: { href: '/areas-risco', method: 'POST' } }
         });
     } catch (error) {
-        next(genericError('Erro ao obter áreas de risco'));
+        return next(genericError('Erro ao obter áreas de risco'));
     }
 };
 
+// GET /areas-risco/:id — devolve uma área específica pelo ID
 export const obterAreaRiscoPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -78,10 +86,11 @@ export const obterAreaRiscoPorId = async (req, res, next) => {
             _links: { ...areaLinks(id), allAreas: { href: '/areas-risco', method: 'GET' } }
         });
     } catch (error) {
-        next(genericError('Erro ao obter área de risco'));
+        return next(genericError('Erro ao obter área de risco'));
     }
 };
 
+// PATCH /areas-risco/:id — actualização parcial (só os campos enviados são alterados)
 export const atualizarAreaRisco = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -90,9 +99,11 @@ export const atualizarAreaRisco = async (req, res, next) => {
         const area = await AreaRisco.findByPk(id);
         if (!area) return next(notFoundError('área de risco', id));
 
+        // Valida vulnerabilidade apenas se foi enviada no body
         if (vulnerabilidade_base !== undefined && (vulnerabilidade_base < 1 || vulnerabilidade_base > 5))
             return next(validationError('vulnerabilidade_base deve estar entre 1 e 5'));
 
+        // Constrói o objecto só com os campos a alterar
         const updateData = {};
         if (nome !== undefined) updateData.nome = nome;
         if (localizacao !== undefined) updateData.localizacao = localizacao;
@@ -107,18 +118,21 @@ export const atualizarAreaRisco = async (req, res, next) => {
             _links: { ...areaLinks(id), allAreas: { href: '/areas-risco', method: 'GET' } }
         });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') next(sequelizeValidationError(error.errors));
-        else if (error.name === 'SequelizeUniqueConstraintError') next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
-        else next(genericError('Erro ao atualizar área de risco'));
+        if (error.name === 'SequelizeValidationError')
+            return next(sequelizeValidationError(error.errors));
+        if (error.name === 'SequelizeUniqueConstraintError')
+            return next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
+        return next(genericError('Erro ao atualizar área de risco'));
     }
 };
 
-// PUT /areas-risco/:id  – substituição completa
+// PUT /areas-risco/:id — substituição completa (todos os campos obrigatórios)
 export const substituirAreaRisco = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { nome, localizacao, vulnerabilidade_base, descricao } = req.body;
 
+        // PUT exige todos os campos obrigatórios no body
         if (!nome || !localizacao || vulnerabilidade_base === undefined)
             return next(missingFieldsValidationError(['nome', 'localizacao', 'vulnerabilidade_base']));
 
@@ -128,6 +142,7 @@ export const substituirAreaRisco = async (req, res, next) => {
         const area = await AreaRisco.findByPk(id);
         if (!area) return next(notFoundError('área de risco', id));
 
+        // descricao é opcional — ?? null garante que limpa o campo se não for enviado
         await area.update({ nome, localizacao, vulnerabilidade_base, descricao: descricao ?? null });
 
         return res.status(200).json({
@@ -136,12 +151,17 @@ export const substituirAreaRisco = async (req, res, next) => {
             _links: { ...areaLinks(id), allAreas: { href: '/areas-risco', method: 'GET' } }
         });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') next(sequelizeValidationError(error.errors));
-        else if (error.name === 'SequelizeUniqueConstraintError') next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
-        else next(genericError('Erro ao substituir área de risco'));
+        if (error.name === 'SequelizeValidationError')
+            return next(sequelizeValidationError(error.errors));
+        if (error.name === 'SequelizeUniqueConstraintError')
+            return next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
+        return next(genericError('Erro ao substituir área de risco'));
     }
 };
 
+// DELETE /areas-risco/:id — apaga a área de risco
+// ATENÇÃO — SEM onDelete:CASCADE para infraestruturas: bloqueia se existirem infraestruturas associadas
+// ATENÇÃO — onDelete:CASCADE activo para previsões meteorológicas: apaga-as automaticamente
 export const deletarAreaRisco = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -152,8 +172,9 @@ export const deletarAreaRisco = async (req, res, next) => {
         await area.destroy();
         return res.status(204).send();
     } catch (error) {
+        // Existem infraestruturas associadas a esta área — remover primeiro
         if (error.name === 'SequelizeForeignKeyConstraintError')
             return next(conflictError('Não é possível apagar: existem infraestruturas associadas a esta área de risco'));
-        next(genericError('Erro ao deletar área de risco'));
+        return next(genericError('Erro ao deletar área de risco'));
     }
 };

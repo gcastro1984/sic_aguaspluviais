@@ -20,7 +20,7 @@ export default (sequelize, DataTypes) =>
 
         iddestinatario: {
             type: DataTypes.INTEGER,
-            allowNull: false
+            allowNull: true   // nullable: admins (Utilizador) recebem emails mas não têm registo em Destinatarios
         },
 
         canal: {

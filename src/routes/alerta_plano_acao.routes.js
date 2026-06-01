@@ -7,6 +7,7 @@ const router = express.Router();
 const writeRoles = requireRole('administrador', 'operador_municipal');
 
 // GET /alertas-planos?estado=X&idalerta=1&idplano_acao=2&page=1&limit=20
+
 router.get('/', obterAlertasPlanos);
 router.get('/:idalerta/:idplano_acao', verifyToken, obterAlertaPlanoAcaoPorIds);
 router.post('/',   verifyToken, writeRoles, criarAlertaPlanoAcao);

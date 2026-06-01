@@ -15,8 +15,15 @@
 
 <body>
 
+  <!-- Overlay escuro que aparece atrás da sidebar em mobile -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="fecharSidebar()"></div>
+
   <!-- ══ NAVBAR ══════════════════════════════════════════ -->
   <nav class="navbar">
+    <!-- Botão hamburger — apenas visível em mobile (< 992px) -->
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Menu">
+      <i class="fa fa-bars"></i>
+    </button>
     <div class="navbar-brand">
       <div class="logo-icon"><i class="fa fa-droplet"></i></div>
       SIC / Pluviais
@@ -535,14 +542,15 @@
                 <th>Plano de Ação</th>
                 <th>Destinatário</th>
                 <th>Estado</th>
-                <th>Data Ativação</th>
+                <th>Data Início</th>
+                <th>Data Conclusão</th>
                 <th>Observações</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody id="planos-tbody">
               <tr>
-                <td colspan="8">
+                <td colspan="9">
                   <div class="loading">
                     <div class="spinner"></div>A carregar...
                   </div>
@@ -719,13 +727,12 @@
                 <th>Email</th>
                 <th>Telefone</th>
                 <th>Tipo</th>
-                <th>Ativo</th>
                 <th>Ações</th>
               </tr>
             </thead>
             <tbody id="destin-tbody">
               <tr>
-                <td colspan="7">
+                <td colspan="6">
                   <div class="loading">
                     <div class="spinner"></div>A carregar...
                   </div>
@@ -763,7 +770,7 @@
                 <th>Canal</th>
                 <th>Estado</th>
                 <th>Data Envio</th>
-                <th>Ações</th>
+                <th>Mensagem</th>
               </tr>
             </thead>
             <tbody id="notif-tbody">
@@ -797,18 +804,15 @@
         <div class="card-header">
           <span class="card-title">Relatórios Registados</span>
           <div style="display:flex;gap:.5rem;align-items:center">
-            <input type="number" id="filter-rel-utilizador" placeholder="ID utilizador"
-              style="width:130px;padding:.25rem .6rem;font-size:.75rem" oninput="loadRelatorios()" />
-            <input type="number" id="filter-rel-alerta" placeholder="ID alerta"
-              style="width:110px;padding:.25rem .6rem;font-size:.75rem" oninput="loadRelatorios()" />
+            <input type="number" id="filter-rel-alerta" placeholder="Filtrar por ID alerta"
+              style="width:160px;padding:.25rem .6rem;font-size:.75rem" oninput="loadRelatorios()" />
+            <button class="btn btn-sm btn-outline" onclick="loadRelatorios()"><i class="fa fa-rotate"></i></button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Utilizador</th>
                 <th>Alerta</th>
                 <th>Descrição</th>
                 <th>Data</th>
@@ -816,7 +820,7 @@
               </tr>
             </thead>
             <tbody id="relatorios-tbody">
-              <tr><td colspan="6"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
+              <tr><td colspan="4"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
             </tbody>
           </table>
         </div>

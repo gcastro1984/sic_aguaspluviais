@@ -1,9 +1,10 @@
-import { Sensor, Notificacao, Destinatarios } from '../models/db.config.js';
+import { Sensor } from '../models/db.config.js';
 import { sequelizeValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
 
+// Tipos de sensor aceites no sistema
 const TIPOS_SENSOR_VALIDOS = ['nivel_agua', 'precipitacao', 'caudal', 'temperatura', 'humidade'];
 
-// Valida que a data é válida e estritamente futura (> hoje)
+// Verifica se a data é válida e estritamente no futuro (não aceita hoje nem datas passadas)
 function validarDataFutura(valor, campo) {
     const d = new Date(valor);
     if (isNaN(d.getTime())) return { [campo]: 'Data inválida' };
@@ -13,16 +14,18 @@ function validarDataFutura(valor, campo) {
     return null;
 }
 
+// Links HATEOAS — acções disponíveis para um sensor específico
 const sensorLinks = (id) => ({
-    self:    { href: `/sensores/${id}`,  method: 'GET' },
-    replace: { href: `/sensores/${id}`,  method: 'PUT' },
-    update:  { href: `/sensores/${id}`,  method: 'PATCH' },
-    delete:  { href: `/sensores/${id}`,  method: 'DELETE' }
+    self:   { href: `/sensores/${id}`, method: 'GET' },
+    update: { href: `/sensores/${id}`, method: 'PATCH' },
+    delete: { href: `/sensores/${id}`, method: 'DELETE' }
 });
 
+// GET /sensores — lista todos os sensores com paginação
 export const obterSensores = async (req, res, next) => {
     try {
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+        // Paginação: limit máx 100, page ou offset aceites como parâmetros
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
         let offset, page;
         if (req.query.offset !== undefined) {
             offset = Math.max(0, parseInt(req.query.offset) || 0);
@@ -37,6 +40,7 @@ export const obterSensores = async (req, res, next) => {
         const data  = rows.map(s => ({ ...s.toJSON(), _links: sensorLinks(s.idsensor) }));
         const pages = Math.ceil(count / limit);
 
+        // 206 Partial Content se existem mais registos do que o limit (há mais páginas)
         return res.status(count > limit ? 206 : 200).json({
             data,
             pagination: { total: count, page, limit, pages },
@@ -47,6 +51,7 @@ export const obterSensores = async (req, res, next) => {
     }
 };
 
+// GET /sensores/:id — devolve um sensor específico pelo ID
 export const obterSensorPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -63,25 +68,31 @@ export const obterSensorPorId = async (req, res, next) => {
     }
 };
 
+// POST /sensores — cria um novo sensor
 export const criarSensor = async (req, res, next) => {
     try {
         const { tipo, localizacao, status, idinfraestrutura_urbana, data_proxima_manutencao } = req.body;
 
+        // Campos obrigatórios
         if (!tipo || !localizacao)
             return next(validationError({ tipo: 'Campo tipo é obrigatório.', localizacao: 'Campo localizacao é obrigatório.' }));
 
+        // Valida o tipo do sensor
         if (!TIPOS_SENSOR_VALIDOS.includes(tipo))
             return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_SENSOR_VALIDOS.join(', ')}` }));
 
+        // Valida o estado do sensor (se fornecido)
         const validStatus = ['online', 'offline', 'manutencao'];
         if (status !== undefined && !validStatus.includes(status))
             return next(validationError({ status: 'Estado inválido. Use online, offline ou manutencao.' }));
 
+        // Valida que a data de manutenção é futura (se fornecida)
         if (data_proxima_manutencao) {
             const erroData = validarDataFutura(data_proxima_manutencao, 'data_proxima_manutencao');
             if (erroData) return next(validationError(erroData));
         }
 
+        // Cria o sensor — status padrão é 'offline' se não fornecido
         const newSensor = await Sensor.create({
             tipo,
             localizacao,
@@ -90,21 +101,25 @@ export const criarSensor = async (req, res, next) => {
             data_proxima_manutencao: data_proxima_manutencao ?? null
         });
 
-        return res.status(201).json({
-            _self: `/sensores/${newSensor.idsensor}`
-        });
+        // Devolve o link para aceder ao sensor criado
+        return res.status(201).json({ _self: `/sensores/${newSensor.idsensor}` });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
-        if (error.name === 'SequelizeForeignKeyConstraintError') return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
+        if (error.name === 'SequelizeValidationError')
+            return next(sequelizeValidationError(error.errors));
+        // FK inválida: a infraestrutura indicada não existe na BD
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
         return next(genericError(error.message));
     }
 };
 
+// PATCH /sensores/:id — actualização parcial (só os campos enviados são alterados)
 export const atualizarSensor = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { tipo, localizacao, status, idinfraestrutura_urbana, data_proxima_manutencao } = req.body;
 
+        // Validações apenas para os campos que foram enviados
         if (tipo !== undefined && !TIPOS_SENSOR_VALIDOS.includes(tipo))
             return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_SENSOR_VALIDOS.join(', ')}` }));
 
@@ -120,6 +135,7 @@ export const atualizarSensor = async (req, res, next) => {
         const sensor = await Sensor.findByPk(id);
         if (!sensor) return next(notFoundError('sensor', id));
 
+        // Constrói o objecto só com os campos a alterar
         const updateData = {};
         if (tipo !== undefined) updateData.tipo = tipo;
         if (localizacao !== undefined) updateData.localizacao = localizacao;
@@ -135,18 +151,21 @@ export const atualizarSensor = async (req, res, next) => {
             _links: { ...sensorLinks(id), allSensores: { href: '/sensores', method: 'GET' } }
         });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
-        if (error.name === 'SequelizeForeignKeyConstraintError') return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
+        if (error.name === 'SequelizeValidationError')
+            return next(sequelizeValidationError(error.errors));
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
         return next(genericError(error.message));
     }
 };
 
-// PUT /sensores/:id  – substituição completa do recurso
+// PUT /sensores/:id — substituição completa (todos os campos obrigatórios)
 export const substituirSensor = async (req, res, next) => {
     try {
         const { id } = req.params;
         const { tipo, localizacao, status, idinfraestrutura_urbana, data_proxima_manutencao } = req.body;
 
+        // PUT exige campos obrigatórios no body
         if (!tipo || !localizacao)
             return next(validationError('tipo e localizacao são obrigatórios', { tipo: 'obrigatório', localizacao: 'obrigatório' }));
 
@@ -165,12 +184,13 @@ export const substituirSensor = async (req, res, next) => {
         const sensor = await Sensor.findByPk(id);
         if (!sensor) return next(notFoundError('sensor', id));
 
+        // Substitui todos os campos — status padrão 'offline' se não fornecido
         await sensor.update({
             tipo,
             localizacao,
-            status:                   validStatus.includes(status) ? status : 'offline',
-            idinfraestrutura_urbana:  idinfraestrutura_urbana  ?? null,
-            data_proxima_manutencao:  data_proxima_manutencao  ?? null
+            status:                  validStatus.includes(status) ? status : 'offline',
+            idinfraestrutura_urbana: idinfraestrutura_urbana ?? null,
+            data_proxima_manutencao: data_proxima_manutencao ?? null
         });
 
         return res.status(200).json({
@@ -179,12 +199,17 @@ export const substituirSensor = async (req, res, next) => {
             _links: { ...sensorLinks(id), allSensores: { href: '/sensores', method: 'GET' } }
         });
     } catch (error) {
-        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
-        if (error.name === 'SequelizeForeignKeyConstraintError') return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
+        if (error.name === 'SequelizeValidationError')
+            return next(sequelizeValidationError(error.errors));
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
         return next(genericError(error.message));
     }
 };
 
+// DELETE /sensores/:id — apaga o sensor
+// ATENÇÃO — onDelete:CASCADE activo: apagar o sensor apaga também todas as suas leituras
+//           e cada leitura apaga o alerta associado (ver db.config.js)
 export const apagarSensor = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -194,96 +219,6 @@ export const apagarSensor = async (req, res, next) => {
 
         await sensor.destroy();
         return res.status(204).send();
-    } catch (error) {
-        return next(genericError(error.message));
-    }
-};
-
-// POST /sensores/:id/calibracao
-// Acção controller (apenas operador_municipal / administrador):
-//   • regista que o operador vai calibrar o sensor
-//   • coloca o sensor em estado "manutencao"
-//   • notifica os destinatários do tipo "responsavel" para ficarem a par
-export const notificarCalibracao = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { canal = 'email', data_proxima_manutencao, observacoes } = req.body;
-
-        const canaisValidos = ['email', 'sms', 'push'];
-        if (!canaisValidos.includes(canal))
-            return next(validationError({ canal: `Canal inválido. Use: ${canaisValidos.join(', ')}` }));
-
-        if (data_proxima_manutencao) {
-            const erroData = validarDataFutura(data_proxima_manutencao, 'data_proxima_manutencao');
-            if (erroData) return next(validationError(erroData));
-        }
-
-        // Quem está a fazer a calibração (vem do JWT via verifyToken)
-        const operadorId   = req.user.sub;
-        const operadorTipo = req.user.tipo;
-
-        // 1. Verificar que o sensor existe
-        const sensor = await Sensor.findByPk(id);
-        if (!sensor) return next(notFoundError('sensor', id));
-
-        // 2. Colocar o sensor em estado "manutencao"
-        const updateData = { status: 'manutencao' };
-        if (data_proxima_manutencao) updateData.data_proxima_manutencao = data_proxima_manutencao;
-        await sensor.update(updateData);
-
-        // 3. Encontrar destinatários responsáveis (gestores que devem ser informados)
-        const responsaveis = await Destinatarios.findAll({ where: { tipo: 'responsavel' } });
-
-        if (!responsaveis.length) {
-            return res.status(200).json({
-                message: 'Sensor colocado em manutenção, mas não existem destinatários do tipo "responsavel" para notificar.',
-                data: { sensor: sensor.toJSON() },
-                _links: {
-                    sensor:        { href: `/sensores/${id}`, method: 'GET' },
-                    destinatarios: { href: `/destinatarios`,  method: 'GET' }
-                }
-            });
-        }
-
-        // 4. Construir a mensagem
-        const dataTexto = data_proxima_manutencao
-            ? `Data prevista: ${new Date(data_proxima_manutencao).toLocaleDateString('pt-PT')}.`
-            : 'Data de conclusão a definir.';
-
-        const mensagem =
-            `[CALIBRAÇÃO] O sensor #${sensor.idsensor} (${sensor.tipo}) ` +
-            `em "${sensor.localizacao}" foi registado para calibração ` +
-            `pelo utilizador #${operadorId} (${operadorTipo}). ` +
-            dataTexto +
-            (observacoes ? ` Observações: ${observacoes}` : '');
-
-        // 5. Criar uma notificação por cada responsável
-        const notificacoes = await Promise.all(
-            responsaveis.map(resp =>
-                Notificacao.create({
-                    idalerta:       null,
-                    idsensor:       sensor.idsensor,
-                    iddestinatario: resp.iddestinatario,
-                    canal,
-                    estado_envio:   'pendente',
-                    data_envio:     new Date(),
-                    mensagem
-                })
-            )
-        );
-
-        return res.status(201).json({
-            message: `Calibração registada pelo operador #${operadorId}. ${notificacoes.length} responsável(is) notificado(s).`,
-            data: {
-                sensor:       sensor.toJSON(),
-                notificacoes: notificacoes.map(n => n.toJSON())
-            },
-            _links: {
-                sensor:       { href: `/sensores/${id}`, method: 'GET' },
-                notificacoes: { href: `/notificacoes`,   method: 'GET' },
-                reporOnline:  { href: `/sensores/${id}`, method: 'PATCH' }
-            }
-        });
     } catch (error) {
         return next(genericError(error.message));
     }

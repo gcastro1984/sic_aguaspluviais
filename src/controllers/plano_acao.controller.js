@@ -1,15 +1,17 @@
 import { PlanoAcao } from '../models/db.config.js';
 import { missingFieldsValidationError, validationError, sequelizeValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
 
+// Tipos de destinatário aceites — determina quem recebe notificações do plano
 const TIPOS_DESTINATARIO_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade'];
 
+// Links HATEOAS — acções disponíveis para um plano de ação específico
 const planoLinks = (id) => ({
-    self:    { href: `/planos-acao/${id}`,  method: 'GET' },
-    replace: { href: `/planos-acao/${id}`,  method: 'PUT' },
-    update:  { href: `/planos-acao/${id}`,  method: 'PATCH' },
-    delete:  { href: `/planos-acao/${id}`,  method: 'DELETE' }
+    self:   { href: `/planos-acao/${id}`, method: 'GET' },
+    update: { href: `/planos-acao/${id}`, method: 'PATCH' },
+    delete: { href: `/planos-acao/${id}`, method: 'DELETE' }
 });
 
+// POST /planos-acao — cria um novo plano de ação
 export const criarPlanoAcao = async (req, res, next) => {
     try {
         const { descricao, tipo_destinatario } = req.body;
@@ -31,6 +33,7 @@ export const criarPlanoAcao = async (req, res, next) => {
     }
 };
 
+// GET /planos-acao — lista todos os planos com paginação
 export const obterPlanosAcao = async (req, res, next) => {
     try {
         const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
@@ -58,6 +61,7 @@ export const obterPlanosAcao = async (req, res, next) => {
     }
 };
 
+// GET /planos-acao/:id — devolve um plano específico pelo ID
 export const obterPlanoAcaoPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -74,6 +78,7 @@ export const obterPlanoAcaoPorId = async (req, res, next) => {
     }
 };
 
+// PATCH /planos-acao/:id — actualização parcial (só os campos enviados são alterados)
 export const atualizarPlanoAcao = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -130,6 +135,8 @@ export const substituirPlanoAcao = async (req, res, next) => {
     }
 };
 
+// DELETE /planos-acao/:id — apaga o plano
+// ATENÇÃO — SEM onDelete:CASCADE para plano_alerta: bloqueia se estiver configurado em níveis de alerta
 export const apagarPlanoAcao = async (req, res, next) => {
     try {
         const { id } = req.params;

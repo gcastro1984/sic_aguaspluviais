@@ -1,8 +1,10 @@
 import { Destinatarios } from '../models/db.config.js';
 import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, conflictError, genericError } from '../utils/error.utils.js';
 
+// Tipos de destinatário aceites — usado para filtrar quem recebe notificações automáticas
 const TIPOS_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade'];
 
+// Links HATEOAS — acções disponíveis para um destinatário específico
 const destLinks = (id) => ({
     self:    { href: `/destinatarios/${id}`,  method: 'GET' },
     replace: { href: `/destinatarios/${id}`,  method: 'PUT' },
@@ -10,6 +12,7 @@ const destLinks = (id) => ({
     delete:  { href: `/destinatarios/${id}`,  method: 'DELETE' }
 });
 
+// POST /destinatarios — cria um novo destinatário de notificações
 export const criarDestinatario = async (req, res, next) => {
     try {
         const { tipo, nome, email, contato } = req.body;
@@ -35,6 +38,7 @@ export const criarDestinatario = async (req, res, next) => {
     }
 };
 
+// GET /destinatarios — lista todos os destinatários com paginação
 export const obterDestinatarios = async (req, res, next) => {
     try {
         const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
@@ -62,6 +66,7 @@ export const obterDestinatarios = async (req, res, next) => {
     }
 };
 
+// GET /destinatarios/:id — devolve um destinatário específico pelo ID
 export const obterDestinatarioPorId = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -78,6 +83,7 @@ export const obterDestinatarioPorId = async (req, res, next) => {
     }
 };
 
+// PATCH /destinatarios/:id — actualização parcial (só os campos enviados são alterados)
 export const atualizarDestinatario = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -141,6 +147,8 @@ export const substituirDestinatario = async (req, res, next) => {
     }
 };
 
+// DELETE /destinatarios/:id — apaga o destinatário
+// ATENÇÃO — SEM onDelete:CASCADE para notificações: bloqueia se tiver notificações associadas
 export const apagarDestinatario = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -148,9 +156,15 @@ export const apagarDestinatario = async (req, res, next) => {
 
         if (!destinatario) return next(notFoundError('destinatário', id));
 
+        // ATENÇÃO — relação SEM onDelete:CASCADE (bloqueia se existirem registos dependentes):
+        //   • Notificacao → notificações enviadas a este destinatário
+        // Se existirem, a BD lança SequelizeForeignKeyConstraintError → devolvemos 409 Conflict
         await destinatario.destroy();
         return res.status(204).send();
     } catch (error) {
+        // SequelizeForeignKeyConstraintError: o destinatário tem notificações associadas
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: este destinatário tem notificações associadas. Remova-as primeiro.'));
         return next(genericError(error.message));
     }
 };
