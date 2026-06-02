@@ -159,54 +159,6 @@ export const atualizarSensor = async (req, res, next) => {
     }
 };
 
-// PUT /sensores/:id — substituição completa (todos os campos obrigatórios)
-export const substituirSensor = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { tipo, localizacao, status, idinfraestrutura_urbana, data_proxima_manutencao } = req.body;
-
-        // PUT exige campos obrigatórios no body
-        if (!tipo || !localizacao)
-            return next(validationError('tipo e localizacao são obrigatórios', { tipo: 'obrigatório', localizacao: 'obrigatório' }));
-
-        if (!TIPOS_SENSOR_VALIDOS.includes(tipo))
-            return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_SENSOR_VALIDOS.join(', ')}` }));
-
-        const validStatus = ['online', 'offline', 'manutencao'];
-        if (status !== undefined && !validStatus.includes(status))
-            return next(validationError({ status: 'Estado inválido. Use online, offline ou manutencao.' }));
-
-        if (data_proxima_manutencao) {
-            const erroData = validarDataFutura(data_proxima_manutencao, 'data_proxima_manutencao');
-            if (erroData) return next(validationError(erroData));
-        }
-
-        const sensor = await Sensor.findByPk(id);
-        if (!sensor) return next(notFoundError('sensor', id));
-
-        // Substitui todos os campos — status padrão 'offline' se não fornecido
-        await sensor.update({
-            tipo,
-            localizacao,
-            status:                  validStatus.includes(status) ? status : 'offline',
-            idinfraestrutura_urbana: idinfraestrutura_urbana ?? null,
-            data_proxima_manutencao: data_proxima_manutencao ?? null
-        });
-
-        return res.status(200).json({
-            message: 'Sensor substituído com sucesso',
-            ...sensor.toJSON(),
-            _links: { ...sensorLinks(id), allSensores: { href: '/sensores', method: 'GET' } }
-        });
-    } catch (error) {
-        if (error.name === 'SequelizeValidationError')
-            return next(sequelizeValidationError(error.errors));
-        if (error.name === 'SequelizeForeignKeyConstraintError')
-            return next(validationError(`idinfraestrutura_urbana ${req.body.idinfraestrutura_urbana} não existe`));
-        return next(genericError(error.message));
-    }
-};
-
 // DELETE /sensores/:id — apaga o sensor
 // ATENÇÃO — onDelete:CASCADE activo: apagar o sensor apaga também todas as suas leituras
 //           e cada leitura apaga o alerta associado (ver db.config.js)

@@ -245,14 +245,12 @@ PlanoAlerta.belongsTo(NivelAlerta, { foreignKey: 'idnivel_alerta' });
 
 // Sync the models with the database
 try {
-    await sequelize.sync(); // use { force: true } to drop and recreate tables on every sync (use with caution in production)
+    await sequelize.sync();
     console.log("All models were synchronized successfully.");
 } catch (error) {
     console.error("Error synchronizing models:", error);
     process.exit(1);
 }
-
-
 
 
 

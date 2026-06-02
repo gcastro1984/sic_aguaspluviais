@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 
 import utilizadorRoutes from './src/routes/utilizador.routes.js';
@@ -20,11 +21,18 @@ const app = express();
 const host = process.env.HOST || 'localhost';
 const port = process.env.PORT || 3001;
 
-//CORS primeiro
-app.use(cors());
+// CORS — aceita apenas a origem do frontend definida no .env
+// credentials:true é obrigatório para o browser enviar o cookie httpOnly do refresh token
+app.use(cors({
+    origin:         process.env.FRONTEND_URL,
+    methods:        ['GET', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials:    true
+}));
 
-// depois JSON
+// depois JSON e cookies
 app.use(express.json());
+app.use(cookieParser());
 
 // rotas
 app.use('/utilizadores', utilizadorRoutes);

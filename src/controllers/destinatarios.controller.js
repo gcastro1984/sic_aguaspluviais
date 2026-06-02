@@ -6,10 +6,9 @@ const TIPOS_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade'];
 
 // Links HATEOAS — acções disponíveis para um destinatário específico
 const destLinks = (id) => ({
-    self:    { href: `/destinatarios/${id}`,  method: 'GET' },
-    replace: { href: `/destinatarios/${id}`,  method: 'PUT' },
-    update:  { href: `/destinatarios/${id}`,  method: 'PATCH' },
-    delete:  { href: `/destinatarios/${id}`,  method: 'DELETE' }
+    self:   { href: `/destinatarios/${id}`,  method: 'GET' },
+    update: { href: `/destinatarios/${id}`,  method: 'PATCH' },
+    delete: { href: `/destinatarios/${id}`,  method: 'DELETE' }
 });
 
 // POST /destinatarios — cria um novo destinatário de notificações

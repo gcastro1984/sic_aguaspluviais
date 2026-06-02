@@ -164,6 +164,72 @@
       color: var(--accent);
     }
 
+    .navbar-user-chip {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: .28rem .5rem .28rem .4rem;
+      cursor: default;
+    }
+    .user-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .68rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+    .user-chip-info {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+      min-width: 0;
+    }
+    .user-chip-email {
+      font-size: .72rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 140px;
+    }
+    .user-chip-tipo {
+      font-size: .6rem;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+    .user-chip-edit {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: .7rem;
+      transition: all .2s;
+      flex-shrink: 0;
+    }
+    .user-chip-edit:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--panel);
+    }
+
     .badge-dot {
       position: absolute;
       top: 5px;
@@ -263,6 +329,33 @@
       width: 16px;
       text-align: center;
       font-size: 0.8rem;
+    }
+
+    .sidebar-login-row {
+      display: flex;
+      align-items: stretch;
+    }
+    .sidebar-login-row a {
+      flex: 1;
+    }
+    .sidebar-logout-btn {
+      width: 38px;
+      flex-shrink: 0;
+      background: transparent;
+      border: none;
+      border-left: 1px solid var(--border);
+      color: var(--text-dim);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      transition: all .15s;
+      padding: 0;
+    }
+    .sidebar-logout-btn:hover {
+      background: rgba(239, 68, 68, .1);
+      color: var(--danger);
     }
 
     .sidebar a .badge-count {

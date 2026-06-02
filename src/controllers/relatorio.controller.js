@@ -149,42 +149,6 @@ export const atualizarRelatorio = async (req, res, next) => {
     }
 };
 
-// PUT /relatorios/:id – substituição completa
-export const substituirRelatorio = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { descricao, idutilizador, idalerta } = req.body;
-
-        if (!descricao || !idutilizador)
-            return next(missingFieldsValidationError(['descricao', 'idutilizador']));
-
-        const relatorio = await Relatorio.findByPk(id);
-        if (!relatorio) return next(notFoundError('relatório', id));
-
-        const utilizador = await Utilizador.findByPk(idutilizador);
-        if (!utilizador) return next(notFoundError('utilizador', idutilizador));
-
-        if (idalerta) {
-            const alerta = await Alerta.findByPk(idalerta);
-            if (!alerta) return next(notFoundError('alerta', idalerta));
-        }
-
-        await relatorio.update({ descricao, idutilizador, idalerta: idalerta ?? null });
-
-        return res.status(200).json({
-            message: 'Relatório substituído com sucesso',
-            ...relatorio.toJSON(),
-            _links: {
-                ...relatorioLinks(id),
-                todosRelatorios: { href: '/relatorios', method: 'GET' }
-            }
-        });
-    } catch (error) {
-        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
-        next(genericError('Erro ao substituir relatório'));
-    }
-};
-
 // DELETE /relatorios/:id — apaga o relatório
 export const apagarRelatorio = async (req, res, next) => {
     try {

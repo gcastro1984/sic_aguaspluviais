@@ -33,6 +33,11 @@ export default (sequelize, DataTypes) =>
       validate: {
         notEmpty: true
       }
+    },
+
+    refresh_token: {
+      type: DataTypes.STRING(512),
+      allowNull: true
     }
 
   }, {

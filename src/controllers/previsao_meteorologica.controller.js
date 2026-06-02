@@ -3,10 +3,9 @@ import { PrevisaoMeteorologica, AreaRisco } from '../models/db.config.js';
 import { missingFieldsValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
 
 const previsaoLinks = (id) => ({
-    self:    { href: `/previsoes/${id}`,  method: 'GET' },
-    replace: { href: `/previsoes/${id}`,  method: 'PUT' },
-    update:  { href: `/previsoes/${id}`,  method: 'PATCH' },
-    delete:  { href: `/previsoes/${id}`,  method: 'DELETE' }
+    self:   { href: `/previsoes/${id}`,  method: 'GET' },
+    update: { href: `/previsoes/${id}`,  method: 'PATCH' },
+    delete: { href: `/previsoes/${id}`,  method: 'DELETE' }
 });
 
 export const criarPrevisao = async (req, res, next) => {

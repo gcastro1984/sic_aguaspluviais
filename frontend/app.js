@@ -57,17 +57,96 @@
 
     // ─── AUTH TOKEN ────────────────────────────────────────
     let authToken = null;
+    let authUser  = null; // { id, email, tipo }
+
+    function decodeJwtPayload(token) {
+      try {
+        const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(atob(b64));
+      } catch { return null; }
+    }
+
+    function updateAuthBadge() {
+      const chip   = document.getElementById('navbar-user-chip');
+      const avatar = document.getElementById('navbar-user-avatar');
+      const email  = document.getElementById('navbar-user-email');
+      const tipo   = document.getElementById('navbar-user-tipo');
+      const logoutBtn = document.getElementById('btn-logout');
+      if (!authUser) {
+        chip.style.display = 'none';
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        return;
+      }
+      chip.style.display = 'flex';
+      avatar.textContent = authUser.email ? authUser.email[0].toUpperCase() : '?';
+      email.textContent  = authUser.email || '—';
+      tipo.textContent   = authUser.tipo  || '—';
+      if (logoutBtn) logoutBtn.style.display = 'flex';
+    }
+
+    // Chama o servidor para revogar o refresh token na BD e limpar o cookie,
+    // depois limpa o estado local (token e dados do utilizador) e redireciona para login.
+    // O try/catch exterior garante que o logout local acontece mesmo se o servidor estiver offline.
+    async function doLogout() {
+      try {
+        await fetch(API + '/utilizadores/logout', {
+          method: 'POST',
+          credentials: 'include', // envia o cookie httpOnly ao servidor
+          headers: authToken ? { 'Authorization': 'Bearer ' + authToken } : {}
+        });
+      } catch {}
+      authToken = null;
+      authUser  = null;
+      updateAuthBadge();
+      navigate('login');
+    }
+
+    // Tenta renovar o access token usando o refresh token guardado no cookie httpOnly.
+    // O browser envia o cookie automaticamente (credentials:'include') — o JS nunca lê o valor.
+    // Devolve true e atualiza authToken em caso de sucesso, false se o refresh falhou/expirou.
+    async function tryRefreshToken() {
+      try {
+        const r = await fetch(API + '/utilizadores/refresh', {
+          method: 'POST',
+          credentials: 'include'
+        });
+        if (!r.ok) return false;
+        const data = await r.json();
+        if (data.accessToken) { authToken = data.accessToken; return true; }
+        return false;
+      } catch { return false; }
+    }
+
+    function abrirEdicaoProprioUtilizador() {
+      if (!authUser) return;
+      abrirEdicaoUtilizador(authUser.id, authUser.email, authUser.tipo);
+    }
 
     // ─── API HELPER ─────────────────────────────────────────
-    async function apiCall(method, path, body) {
+    // Wrapper para todos os pedidos à API.
+    // _retry impede ciclos infinitos: se o pedido renovado também devolver 401, faz logout.
+    async function apiCall(method, path, body, _retry = false) {
       try {
         const opts = {
           method,
+          credentials: 'include', // necessário para o browser enviar o cookie do refresh token
           headers: { 'Content-Type': 'application/json' }
         };
         if (authToken) opts.headers['Authorization'] = 'Bearer ' + authToken;
         if (body) opts.body = JSON.stringify(body);
         const r = await fetch(API + path, opts);
+
+        // Se o access token expirou (401) e ainda não tentámos renovar:
+        //  1. Pede novo access token ao /refresh (usa o cookie httpOnly)
+        //  2. Se conseguiu, repete o pedido original com o novo token
+        //  3. Se falhou (refresh expirado/revogado), força logout
+        if (r.status === 401 && !_retry) {
+          const refreshed = await tryRefreshToken();
+          if (refreshed) return apiCall(method, path, body, true);
+          await doLogout();
+          return { ok: false, status: 401, data: { error: 'session_expired', error_description: 'Sessão expirada. Faça login novamente.' } };
+        }
+
         const data = await r.json().catch(() => ({}));
         return { ok: r.ok, status: r.status, data };
       } catch (e) {
@@ -610,10 +689,13 @@
     }
 
     // ─── NOTIFICAÇÕES ──────────────────────────────────────
-    async function loadNotificacoes() {
+    let notifPage = 1;
+
+    async function loadNotificacoes(delta = 0) {
+      notifPage = Math.max(1, notifPage + delta);
       const tbody = document.getElementById('notif-tbody');
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
-      const r = await apiCall('GET', '/notificacoes');
+      const r = await apiCall('GET', `/notificacoes?page=${notifPage}&limit=10`);
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro: ' + (r.data.message || r.status)); return; }
       const list = getList(r);
       if (!list.length) { tbody.innerHTML = emptyRow(7, 'Sem notificações.'); return; }
@@ -639,6 +721,15 @@
           <td style="max-width:180px;overflow:hidden">${msg}</td>
         </tr>`;
       }).join('');
+
+      // Atualiza paginação
+      const p = r.data.pagination;
+      if (p) {
+        document.getElementById('notif-info').textContent =
+          `${p.total} notificação(ões) · Página ${p.page} de ${p.pages}`;
+        document.getElementById('notif-prev').disabled = p.page <= 1;
+        document.getElementById('notif-next').disabled = p.page >= p.pages;
+      }
     }
 
     async function criarNotificacao() {
@@ -860,6 +951,7 @@
           <td>${u.tipo || '—'}</td>
           <td>
             <div style="display:flex;gap:.3rem">
+              <button class="btn btn-sm btn-outline" onclick="abrirEdicaoUtilizador(${u.idutilizador},'${u.email}','${u.tipo}')"><i class="fa fa-pen"></i></button>
               <button class="btn btn-sm btn-danger" onclick="apagarUtilizador(${u.idutilizador})"><i class="fa fa-trash"></i></button>
             </div>
           </td>
@@ -876,6 +968,43 @@
       const r = await apiCall('POST', '/utilizadores', body);
       showResponse('modal-util-resp', r);
       if (r.ok) { setTimeout(() => closeModal('modal-novo-utilizador'), 1200); loadUtilizadores(); }
+    }
+
+    function abrirEdicaoUtilizador(id, email, tipo) {
+      document.getElementById('edit-util-id').value    = id;
+      document.getElementById('edit-util-email').value = '';
+      document.getElementById('edit-util-pass').value  = '';
+      document.getElementById('edit-util-tipo').value  = '';
+      document.getElementById('modal-edit-util-resp').textContent = '';
+      document.querySelector('#modal-editar-utilizador .modal-header h3').textContent =
+        `Editar Utilizador #${id} · ${email}`;
+      openModal('modal-editar-utilizador');
+    }
+
+    async function guardarEdicaoUtilizador() {
+      const id    = document.getElementById('edit-util-id').value;
+      const email = document.getElementById('edit-util-email').value.trim();
+      const pass  = document.getElementById('edit-util-pass').value;
+      const tipo  = document.getElementById('edit-util-tipo').value;
+      const body  = {};
+      if (email) body.email    = email;
+      if (pass)  body.password = pass;
+      if (tipo)  body.tipo     = tipo;
+      if (!Object.keys(body).length) {
+        document.getElementById('modal-edit-util-resp').textContent = 'Preencha pelo menos um campo.';
+        return;
+      }
+      const r = await apiCall('PATCH', `/utilizadores/${id}`, body);
+      showResponse('modal-edit-util-resp', r);
+      if (r.ok) {
+        if (authUser && authUser.id == id) {
+          if (body.email) authUser.email = body.email;
+          if (body.tipo)  authUser.tipo  = body.tipo;
+          updateAuthBadge();
+        }
+        setTimeout(() => closeModal('modal-editar-utilizador'), 1200);
+        loadUtilizadores();
+      }
     }
 
     async function apagarUtilizador(id) {
@@ -895,6 +1024,13 @@
       showResponse('login-response', r);
       if (r.ok && r.data.accessToken) {
         authToken = r.data.accessToken;
+        const payload = decodeJwtPayload(authToken);
+        authUser = {
+          id:    payload?.sub  || null,
+          email: document.getElementById('login-user').value.trim(),
+          tipo:  r.data.tipo   || payload?.tipo || '—',
+        };
+        updateAuthBadge();
         const banner = document.getElementById('login-response');
         if (banner) banner.textContent = '✅ Login efetuado com sucesso! Tipo: ' + r.data.tipo + '. A redirecionar...';
         setTimeout(() => navigate('alertas'), 1000);
@@ -907,6 +1043,7 @@
       { method: 'POST',   path: '/utilizadores/login',   desc: 'Login — devolve JWT',                      body: { email: 'admin@example.com', password: 'pass' } },
       { method: 'POST',   path: '/utilizadores',         desc: 'Criar utilizador',                         body: { email: 'novo@example.com', password: 'pass', tipo: 'operador_municipal' } },
       { method: 'GET',    path: '/utilizadores/{id}',    desc: 'Obter utilizador por ID',                  body: null },
+      { method: 'PATCH',  path: '/utilizadores/{id}',    desc: 'Editar utilizador (admin ou próprio)',      body: { email: 'novo@example.com', password: 'novapass', tipo: 'operador_municipal' } },
       { method: 'DELETE', path: '/utilizadores/{id}',    desc: 'Apagar utilizador (admin)',                 body: null },
       // SENSORES
       { method: 'GET',    path: '/sensores',             desc: 'Listar sensores',                          body: null },

@@ -3,10 +3,9 @@ import { verificarAlertas } from '../utils/alerta.utils.js';
 import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from '../utils/error.utils.js';
 
 const alertaLinks = (id) => ({
-    self:    { href: `/alertas/${id}`,  method: 'GET' },
-    replace: { href: `/alertas/${id}`,  method: 'PUT' },
-    update:  { href: `/alertas/${id}`,  method: 'PATCH' },
-    delete:  { href: `/alertas/${id}`,  method: 'DELETE' }
+    self:   { href: `/alertas/${id}`,  method: 'GET' },
+    update: { href: `/alertas/${id}`,  method: 'PATCH' },
+    delete: { href: `/alertas/${id}`,  method: 'DELETE' }
 });
 
 export const criarAlerta = async (req, res, next) => {

@@ -96,9 +96,10 @@ export const obterNotificacoes = async (req, res, next) => {
 
         const { count, rows } = await Notificacao.findAndCountAll({
             include: [
-                { model: Alerta,       attributes: ['idalerta', 'idarea_risco', 'idnivel_alerta', 'descricao', 'estado'] },
+                { model: Alerta,        attributes: ['idalerta', 'idarea_risco', 'idnivel_alerta', 'descricao', 'estado'] },
                 { model: Destinatarios, attributes: ['iddestinatario', 'tipo', 'nome', 'email', 'contato'] }
             ],
+            order: [['data_envio', 'DESC']], // mais recentes primeiro
             limit,
             offset
         });

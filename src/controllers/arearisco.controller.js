@@ -126,39 +126,6 @@ export const atualizarAreaRisco = async (req, res, next) => {
     }
 };
 
-// PUT /areas-risco/:id — substituição completa (todos os campos obrigatórios)
-export const substituirAreaRisco = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { nome, localizacao, vulnerabilidade_base, descricao } = req.body;
-
-        // PUT exige todos os campos obrigatórios no body
-        if (!nome || !localizacao || vulnerabilidade_base === undefined)
-            return next(missingFieldsValidationError(['nome', 'localizacao', 'vulnerabilidade_base']));
-
-        if (vulnerabilidade_base < 1 || vulnerabilidade_base > 5)
-            return next(validationError('vulnerabilidade_base deve estar entre 1 e 5'));
-
-        const area = await AreaRisco.findByPk(id);
-        if (!area) return next(notFoundError('área de risco', id));
-
-        // descricao é opcional — ?? null garante que limpa o campo se não for enviado
-        await area.update({ nome, localizacao, vulnerabilidade_base, descricao: descricao ?? null });
-
-        return res.status(200).json({
-            message: 'Área de risco substituída com sucesso',
-            ...area.toJSON(),
-            _links: { ...areaLinks(id), allAreas: { href: '/areas-risco', method: 'GET' } }
-        });
-    } catch (error) {
-        if (error.name === 'SequelizeValidationError')
-            return next(sequelizeValidationError(error.errors));
-        if (error.name === 'SequelizeUniqueConstraintError')
-            return next(validationError(`Área de risco com nome '${req.body.nome}' já existe`));
-        return next(genericError('Erro ao substituir área de risco'));
-    }
-};
-
 // DELETE /areas-risco/:id — apaga a área de risco
 // ATENÇÃO — SEM onDelete:CASCADE para infraestruturas: bloqueia se existirem infraestruturas associadas
 // ATENÇÃO — onDelete:CASCADE activo para previsões meteorológicas: apaga-as automaticamente

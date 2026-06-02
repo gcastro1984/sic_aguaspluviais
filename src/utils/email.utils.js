@@ -34,7 +34,7 @@ const transporter = nodemailer.createTransport({
 
 // ─── Função principal de envio ────────────────────────────────────────────
 // Segue o padrão do PDF: prepara mensagem → chama transporter.sendMail()
-// Erros possíveis (documentados no PDF):
+// Erros possíveis:
 //   err.code === 'EENVELOPE' → endereço de email inválido
 //   err.code === 'EAUTH'     → credenciais do servidor inválidas
 export async function enviarEmailAlerta({ email, nome, idalerta, nivel, mensagem, score_risco }) {

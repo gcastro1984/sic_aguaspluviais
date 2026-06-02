@@ -115,35 +115,6 @@ export const atualizarInfraestruturaUrbana = async (req, res, next) => {
     }
 };
 
-// PUT /infraestruturas/:id — substituição completa (todos os campos obrigatórios)
-export const substituirInfraestruturaUrbana = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { nome, tipo, localizacao, idarea_risco } = req.body;
-
-        // PUT exige todos os campos obrigatórios no body
-        if (!nome || !tipo || !localizacao || !idarea_risco)
-            return next(missingFieldsValidationError(['nome', 'tipo', 'localizacao', 'idarea_risco']));
-
-        const infra = await InfraestruturaUrbana.findByPk(id);
-        if (!infra) return next(notFoundError('infraestrutura urbana', id));
-
-        await infra.update({ nome, tipo, localizacao, idarea_risco });
-
-        return res.status(200).json({
-            message: 'Infraestrutura urbana substituída com sucesso',
-            ...infra.toJSON(),
-            _links: { ...infraLinks(id), allInfras: { href: '/infraestruturas', method: 'GET' } }
-        });
-    } catch (error) {
-        if (error.name === 'SequelizeValidationError')
-            return next(sequelizeValidationError(error.errors));
-        if (error.name === 'SequelizeForeignKeyConstraintError')
-            return next(validationError(`Área de risco com ID ${req.body.idarea_risco} não encontrada`));
-        return next(genericError('Erro ao substituir infraestrutura urbana'));
-    }
-};
-
 // DELETE /infraestruturas/:id — apaga a infraestrutura
 // ATENÇÃO — SEM onDelete:CASCADE para sensores: bloqueia se existirem sensores associados
 export const deletarInfraestruturaUrbana = async (req, res, next) => {

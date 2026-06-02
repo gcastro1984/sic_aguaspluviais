@@ -38,15 +38,22 @@
       <div class="api-status">
         <div class="dot"></div>API http://localhost:3001
       </div>
+      <div id="navbar-user-chip" class="navbar-user-chip" style="display:none">
+        <div class="user-avatar" id="navbar-user-avatar">?</div>
+        <div class="user-chip-info">
+          <span class="user-chip-email" id="navbar-user-email">—</span>
+          <span class="user-chip-tipo" id="navbar-user-tipo">—</span>
+        </div>
+        <button class="user-chip-edit" title="Editar o meu perfil" onclick="abrirEdicaoProprioUtilizador()">
+          <i class="fa fa-pen"></i>
+        </button>
+      </div>
       <div class="nav-icon-btn" title="Notificações" onclick="navigate('notificacoes')">
         <i class="fa fa-bell"></i>
         <span class="badge-dot"></span>
       </div>
       <div class="nav-icon-btn" title="Atualizar dados" onclick="refreshCurrentSection()">
         <i class="fa fa-rotate"></i>
-      </div>
-      <div class="nav-icon-btn" title="Configurações">
-        <i class="fa fa-gear"></i>
       </div>
     </div>
   </nav>
@@ -109,9 +116,14 @@
     <a onclick="navigate('endpoints')" id="nav-endpoints">
       <i class="fa fa-plug"></i> Explorador API
     </a>
-    <a onclick="navigate('login')" id="nav-login">
-      <i class="fa fa-right-to-bracket"></i> Login / Auth
-    </a>
+    <div class="sidebar-login-row">
+      <a onclick="navigate('login')" id="nav-login">
+        <i class="fa fa-right-to-bracket"></i> Login / Auth
+      </a>
+      <button class="sidebar-logout-btn" id="btn-logout" onclick="doLogout()" title="Terminar sessão" style="display:none">
+        <i class="fa fa-right-from-bracket"></i>
+      </button>
+    </div>
   </nav>
 
   <!-- ══ MAIN PANEL ══════════════════════════════════════ -->
@@ -753,7 +765,7 @@
           <p>Envio e histórico de notificações de alerta</p>
         </div>
         <div style="display:flex;gap:.5rem">
-          <button class="btn btn-outline" onclick="loadNotificacoes()"><i class="fa fa-rotate"></i></button>
+          <button class="btn btn-outline" onclick="notifPage=1;loadNotificacoes()"><i class="fa fa-rotate"></i></button>
           <button class="btn btn-primary" onclick="openModal('modal-nova-notif')"><i class="fa fa-plus"></i> Nova
             Notificação</button>
         </div>
@@ -783,6 +795,13 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <div id="notif-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-top:1px solid var(--border);font-size:.78rem;color:var(--text-dim)">
+          <span id="notif-info"></span>
+          <div style="display:flex;gap:.4rem">
+            <button class="btn btn-sm btn-outline" id="notif-prev" onclick="loadNotificacoes(-1)" disabled><i class="fa fa-chevron-left"></i> Anterior</button>
+            <button class="btn btn-sm btn-outline" id="notif-next" onclick="loadNotificacoes(1)"><i class="fa fa-chevron-right"></i> Seguinte</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1352,6 +1371,41 @@
         <button class="btn btn-outline" onclick="closeModal('modal-novo-relatorio')">Cancelar</button>
       </div>
       <div class="api-response" id="modal-rel-resp"></div>
+    </div>
+  </div>
+
+  <!-- Editar Utilizador -->
+  <div class="modal-backdrop" id="modal-editar-utilizador">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Editar Utilizador</h3>
+        <button class="modal-close" onclick="closeModal('modal-editar-utilizador')">✕</button>
+      </div>
+      <input type="hidden" id="edit-util-id" />
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Email</label>
+          <input type="email" id="edit-util-email" placeholder="Deixar vazio para não alterar" />
+        </div>
+        <div class="form-group">
+          <label>Nova Password</label>
+          <input type="password" id="edit-util-pass" placeholder="Deixar vazio para não alterar" />
+        </div>
+        <div class="form-group">
+          <label>Tipo / Papel <span style="color:var(--muted);font-size:.7rem">(só admin)</span></label>
+          <select id="edit-util-tipo">
+            <option value="">— Não alterar —</option>
+            <option value="administrador">Administrador</option>
+            <option value="operador_municipal">Operador Municipal</option>
+            <option value="analista_risco">Analista de Risco</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="guardarEdicaoUtilizador()"><i class="fa fa-check"></i> Guardar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-editar-utilizador')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-edit-util-resp"></div>
     </div>
   </div>
 

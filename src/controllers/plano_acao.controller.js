@@ -107,34 +107,6 @@ export const atualizarPlanoAcao = async (req, res, next) => {
     }
 };
 
-// PUT /planos-acao/:id – substituição completa
-export const substituirPlanoAcao = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { descricao, tipo_destinatario } = req.body;
-
-        if (!descricao || !tipo_destinatario)
-            return next(missingFieldsValidationError(['descricao', 'tipo_destinatario']));
-
-        if (!TIPOS_DESTINATARIO_VALIDOS.includes(tipo_destinatario))
-            return next(validationError({ tipo_destinatario: `Tipo inválido. Use: ${TIPOS_DESTINATARIO_VALIDOS.join(', ')}` }));
-
-        const planoAcao = await PlanoAcao.findByPk(id);
-        if (!planoAcao) return next(notFoundError('plano_acao', id));
-
-        await planoAcao.update({ descricao, tipo_destinatario });
-
-        return res.status(200).json({
-            message: 'Plano de ação substituído com sucesso',
-            ...planoAcao.toJSON(),
-            _links: { ...planoLinks(id), allPlanosAcao: { href: '/planos-acao', method: 'GET' } }
-        });
-    } catch (error) {
-        if (error.name === 'SequelizeValidationError') return next(sequelizeValidationError(error.errors));
-        return next(genericError('Erro ao substituir plano de ação'));
-    }
-};
-
 // DELETE /planos-acao/:id — apaga o plano
 // ATENÇÃO — SEM onDelete:CASCADE para plano_alerta: bloqueia se estiver configurado em níveis de alerta
 export const apagarPlanoAcao = async (req, res, next) => {
