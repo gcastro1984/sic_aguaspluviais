@@ -5,10 +5,13 @@ import { verifyToken, requireAdmin, requireSelfOrAdmin } from '../middlewares/au
 const router = express.Router();
 
 // ── Rotas públicas ──────────────────────────────────────────
+// POST /utilizadores/login   → CRIA o refresh token, guarda na BD, define o cookie
 router.post('/login',   login);
+// POST /utilizadores/refresh → LÊ o cookie, verifica na BD, emite novo access token
 router.post('/refresh', refresh);
 
 // ── Rotas protegidas ────────────────────────────────────────
+// POST /utilizadores/logout  → LÊ o cookie, anula na BD, limpa o cookie
 router.post('/logout',  verifyToken, logout);
 
 // ── Rotas protegidas (restantes) ────────────────────────────

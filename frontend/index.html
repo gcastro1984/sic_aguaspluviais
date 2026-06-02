@@ -87,6 +87,9 @@
     <a onclick="navigate('planosauton')" id="nav-planosauton">
       <i class="fa fa-clipboard-list"></i> Planos de Ação
     </a>
+    <a onclick="navigate('planosalerta')" id="nav-planosalerta">
+      <i class="fa fa-diagram-project"></i> Nível ↔ Plano
+    </a>
 
     <div class="sidebar-section">Infraestrutura</div>
     <a onclick="navigate('areasrisco')" id="nav-areasrisco">
@@ -607,6 +610,40 @@
       </div>
     </div>
 
+    <!-- ── NÍVEL ↔ PLANO DE AÇÃO ────────────────────────── -->
+    <div class="section" id="section-planosalerta">
+      <div class="page-header">
+        <div>
+          <div class="breadcrumb">SIC · <span>Nível ↔ Plano</span></div>
+          <h2>Nível de Alerta ↔ Plano de Ação</h2>
+          <p>Associações entre níveis de alerta e planos de resposta automática</p>
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-outline" onclick="loadPlanosAlerta()"><i class="fa fa-rotate"></i></button>
+          <button class="btn btn-primary" onclick="abrirModalAssocNivel()"><i class="fa fa-plus"></i> Nova Associação</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Associações Registadas</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nível de Alerta</th>
+                <th>Gravidade</th>
+                <th>Plano de Ação</th>
+                <th>Tipo Destinatário</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="planosalerta-tbody">
+              <tr><td colspan="5"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ── ÁREAS DE RISCO ──────────────────────────────── -->
     <div class="section" id="section-areasrisco">
       <div class="page-header">
@@ -948,6 +985,65 @@
   </div><!-- end main-panel -->
 
   <!-- ══ MODALS ══════════════════════════════════════════ -->
+
+  <!-- Calibração de Sensor -->
+  <div class="modal-backdrop" id="modal-calibracao">
+    <div class="modal" style="max-width:420px">
+      <div class="modal-header">
+        <h3>Registar Calibração</h3>
+        <button class="modal-close" onclick="closeModal('modal-calibracao')">✕</button>
+      </div>
+      <input type="hidden" id="calib-sensor-id" />
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group">
+          <label>Próxima Manutenção</label>
+          <input type="date" id="calib-data" />
+          <small style="color:var(--muted);font-size:.7rem">Deixar em branco se não definida. Deve ser uma data futura.</small>
+        </div>
+        <div class="form-group">
+          <label>Observações</label>
+          <textarea id="calib-obs" placeholder="Ex: Substituição de bateria, verificação de caudal..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="submeterCalibracao()"><i class="fa fa-wrench"></i> Registar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-calibracao')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-calib-resp"></div>
+    </div>
+  </div>
+
+  <!-- Nova Associação Nível ↔ Plano -->
+  <div class="modal-backdrop" id="modal-nova-assoc-nivel">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-header">
+        <h3>Nova Associação Nível ↔ Plano</h3>
+        <button class="modal-close" onclick="closeModal('modal-nova-assoc-nivel')">✕</button>
+      </div>
+      <div class="form-grid" style="grid-template-columns:1fr">
+        <div class="form-group">
+          <label>Nível de Alerta *</label>
+          <select id="m-assoc-nivel">
+            <option value="1">🟢 Verde (Nível 1)</option>
+            <option value="2">🟡 Amarelo (Nível 2)</option>
+            <option value="3">🟠 Laranja (Nível 3)</option>
+            <option value="4">🔴 Vermelho (Nível 4)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Plano de Ação *</label>
+          <select id="m-assoc-plano">
+            <option value="">A carregar planos...</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="criarAssocNivel()"><i class="fa fa-check"></i> Associar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-nova-assoc-nivel')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-assoc-nivel-resp"></div>
+    </div>
+  </div>
 
   <!-- Nova Leitura -->
   <div class="modal-backdrop" id="modal-nova-leitura">

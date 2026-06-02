@@ -29,11 +29,11 @@ export default (sequelize, DataTypes) =>
     // 
     idinfraestrutura_urbana: {
       type: DataTypes.INTEGER,
-      allowNull: true
+      allowNull: false
     },
 
     data_proxima_manutencao: {
-      type: DataTypes.DATE,
+      type: DataTypes.DATEONLY, // armazena só YYYY-MM-DD, sem hora/timezone
       allowNull: true
     }
 

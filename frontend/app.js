@@ -38,6 +38,7 @@
         notificacoes:   loadNotificacoes,
         planos:         loadPlanos,
         planosauton:    loadPlanosAuton,
+        planosalerta:   loadPlanosAlerta,
         relatorios:     loadRelatorios,
         utilizadores:   loadUtilizadores,
         endpoints:      renderEndpoints,
@@ -309,11 +310,11 @@
     async function loadSensores() {
       const tbody = document.getElementById('sensores-tbody');
       tbody.innerHTML = `<tr><td colspan="7"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
-      const r = await apiCall('GET', '/sensores');
+      const status = document.getElementById('filter-sensor-status').value;
+      const path   = status ? `/sensores?status=${status}` : '/sensores';
+      const r = await apiCall('GET', path);
       if (!r.ok) { tbody.innerHTML = errRow(7, 'Erro a carregar sensores: ' + (r.data.message || r.status)); return; }
-      const list = getList(r);
-      const filter = document.getElementById('filter-sensor-status').value;
-      const filtered = filter ? list.filter(s => s.status === filter) : list;
+      const filtered = getList(r);
       if (!filtered.length) { tbody.innerHTML = emptyRow(7, 'Nenhum sensor encontrado.'); return; }
       tbody.innerHTML = filtered.map(s => `
     <tr>
@@ -831,15 +832,24 @@
     }
 
     // ─── CALIBRAÇÃO ────────────────────────────────────────
-    async function calibrarSensor(id) {
-      const dataProx = prompt('Data próxima manutenção (YYYY-MM-DD, opcional):');
-      const obs      = prompt('Observações (opcional):');
-      const body = { canal: 'email' };
-      if (dataProx) body.data_proxima_manutencao = dataProx;
-      if (obs)      body.observacoes = obs;
+    function calibrarSensor(id) {
+      document.getElementById('calib-sensor-id').value = id;
+      document.getElementById('calib-data').value      = '';
+      document.getElementById('calib-obs').value       = '';
+      document.getElementById('modal-calib-resp').textContent = '';
+      openModal('modal-calibracao');
+    }
+
+    async function submeterCalibracao() {
+      const id   = document.getElementById('calib-sensor-id').value;
+      const data = document.getElementById('calib-data').value;
+      const obs  = document.getElementById('calib-obs').value.trim();
+      const body = {};
+      if (data) body.data_proxima_manutencao = data;  // YYYY-MM-DD direto, sem conversão timezone
+      if (obs)  body.observacoes = obs;
       const r = await apiCall('POST', `/sensores/${id}/calibracao`, body);
-      alert(r.ok ? 'Calibração registada! Notificação enviada.' : 'Erro: ' + (r.data.error_description || JSON.stringify(r.data)));
-      loadSensores();
+      showResponse('modal-calib-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-calibracao'), 1500); loadSensores(); }
     }
 
     // ─── PLANOS DE AÇÃO (autónomos) ────────────────────────
@@ -884,6 +894,81 @@
       const r = await apiCall('DELETE', `/planos-acao/${id}`);
       alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
       loadPlanosAuton();
+    }
+
+    // ─── NÍVEL ↔ PLANO DE AÇÃO ─────────────────────────────
+    const NIVEL_BADGE = {
+      1: { label: 'Verde',    bg: 'var(--success)',  emoji: '🟢' },
+      2: { label: 'Amarelo',  bg: 'var(--warning)',  emoji: '🟡' },
+      3: { label: 'Laranja',  bg: '#f97316',         emoji: '🟠' },
+      4: { label: 'Vermelho', bg: 'var(--danger)',   emoji: '🔴' },
+    };
+
+    async function loadPlanosAlerta() {
+      const tbody = document.getElementById('planosalerta-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5"><div class="loading"><div class="spinner"></div>A carregar...</div></td></tr>`;
+      const r = await apiCall('GET', '/planos-alerta?limit=100');
+      if (!r.ok) { tbody.innerHTML = errRow(5, 'Erro: ' + (r.data.error_description || r.status)); return; }
+      const list = getList(r);
+      if (!list.length) { tbody.innerHTML = emptyRow(5, 'Sem associações registadas.'); return; }
+
+      // Ordena por gravidade crescente para mostrar Verde → Vermelho
+      list.sort((a, b) => (a.nivel_alerta?.ordem_gravidade || 0) - (b.nivel_alerta?.ordem_gravidade || 0));
+
+      tbody.innerHTML = list.map(pa => {
+        const nv  = pa.nivel_alerta;
+        const pl  = pa.plano_acao;
+        const nb  = NIVEL_BADGE[nv?.idnivel_alerta] || { label: nv?.nome || '—', bg: '#6b7280', emoji: '⚪' };
+        const badge = `<span style="background:${nb.bg};color:#fff;padding:.15rem .55rem;border-radius:6px;font-size:.7rem;font-weight:700">
+                         ${nb.emoji} ${nb.label}
+                       </span>`;
+        return `<tr>
+          <td>${badge}</td>
+          <td class="td-mono" style="text-align:center">${nv?.ordem_gravidade ?? '—'}</td>
+          <td>${pl?.descricao || '—'}</td>
+          <td><span style="font-size:.7rem;color:var(--text-dim)">${pl?.tipo_destinatario || '—'}</span></td>
+          <td>
+            <button class="btn btn-sm btn-danger" onclick="apagarAssocNivel(${pa.idplano_acao},${pa.idnivel_alerta})" title="Remover associação">
+              <i class="fa fa-trash"></i>
+            </button>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function abrirModalAssocNivel() {
+      // Popula o select de planos de ação dinamicamente
+      const sel = document.getElementById('m-assoc-plano');
+      sel.innerHTML = '<option value="">A carregar...</option>';
+      const r = await apiCall('GET', '/planos-acao?limit=100');
+      if (r.ok) {
+        const list = getList(r);
+        sel.innerHTML = list.length
+          ? list.map(p => `<option value="${p.idplano_acao}">#${p.idplano_acao} — ${p.descricao?.substring(0, 60)}</option>`).join('')
+          : '<option value="">Sem planos de ação registados</option>';
+      } else {
+        sel.innerHTML = '<option value="">Erro ao carregar planos</option>';
+      }
+      document.getElementById('modal-assoc-nivel-resp').textContent = '';
+      openModal('modal-nova-assoc-nivel');
+    }
+
+    async function criarAssocNivel() {
+      const body = {
+        idnivel_alerta: parseInt(document.getElementById('m-assoc-nivel').value),
+        idplano_acao:   parseInt(document.getElementById('m-assoc-plano').value),
+      };
+      const r = await apiCall('POST', '/planos-alerta', body);
+      showResponse('modal-assoc-nivel-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-nova-assoc-nivel'), 1200); loadPlanosAlerta(); }
+    }
+
+    async function apagarAssocNivel(idplano, idnivel) {
+      if (!confirm(`Remover associação Plano #${idplano} ↔ Nível #${idnivel}?`)) return;
+      const r = await apiCall('DELETE', `/planos-alerta/${idplano}/${idnivel}`);
+      alert(r.ok ? 'Associação removida!' : 'Erro: ' + JSON.stringify(r.data));
+      loadPlanosAlerta();
     }
 
     // ─── RELATÓRIOS ────────────────────────────────────────
@@ -1040,11 +1125,14 @@
     // ─── ENDPOINTS EXPLORER ────────────────────────────────
     const ENDPOINTS = [
       // AUTENTICAÇÃO / UTILIZADORES
-      { method: 'POST',   path: '/utilizadores/login',   desc: 'Login — devolve JWT',                      body: { email: 'admin@example.com', password: 'pass' } },
-      { method: 'POST',   path: '/utilizadores',         desc: 'Criar utilizador',                         body: { email: 'novo@example.com', password: 'pass', tipo: 'operador_municipal' } },
-      { method: 'GET',    path: '/utilizadores/{id}',    desc: 'Obter utilizador por ID',                  body: null },
-      { method: 'PATCH',  path: '/utilizadores/{id}',    desc: 'Editar utilizador (admin ou próprio)',      body: { email: 'novo@example.com', password: 'novapass', tipo: 'operador_municipal' } },
-      { method: 'DELETE', path: '/utilizadores/{id}',    desc: 'Apagar utilizador (admin)',                 body: null },
+      { method: 'POST',   path: '/utilizadores/login',   desc: 'Login — devolve access token + define cookie refresh token',         body: { email: 'admin@example.com', password: 'pass' } },
+      { method: 'POST',   path: '/utilizadores/refresh', desc: 'Renovar access token via cookie httpOnly (sem body)',                body: null },
+      { method: 'POST',   path: '/utilizadores/logout',  desc: 'Logout — revoga refresh token na BD e limpa cookie',                 body: null },
+      { method: 'GET',    path: '/utilizadores',         desc: 'Listar utilizadores (admin)',                                        body: null },
+      { method: 'POST',   path: '/utilizadores',         desc: 'Criar utilizador (admin)',                                           body: { email: 'novo@example.com', password: 'pass12345', tipo: 'operador_municipal' } },
+      { method: 'GET',    path: '/utilizadores/{id}',    desc: 'Obter utilizador por ID (admin ou próprio)',                         body: null },
+      { method: 'PATCH',  path: '/utilizadores/{id}',    desc: 'Editar utilizador — email, password e/ou tipo (admin ou próprio)',   body: { email: 'novo@example.com', password: 'novapass', tipo: 'operador_municipal' } },
+      { method: 'DELETE', path: '/utilizadores/{id}',    desc: 'Apagar utilizador (admin)',                                          body: null },
       // SENSORES
       { method: 'GET',    path: '/sensores',             desc: 'Listar sensores',                          body: null },
       { method: 'GET',    path: '/sensores/{id}',        desc: 'Sensor por ID',                            body: null },
@@ -1106,11 +1194,16 @@
       { method: 'POST',   path: '/notificacoes',         desc: 'Notificar responsáveis por sensor',         body: { idsensor: 1, canal: 'email', observacoes: 'Calibração prevista' } },
       { method: 'PATCH',  path: '/notificacoes/{id}',    desc: 'Atualizar estado da notificação',           body: { estado_envio: 'enviado' } },
       { method: 'DELETE', path: '/notificacoes/{id}',    desc: 'Apagar notificação',                       body: null },
+      // NÍVEL ↔ PLANO DE AÇÃO
+      { method: 'GET',    path: '/planos-alerta',                          desc: 'Listar associações nível↔plano (?idnivel_alerta=&idplano_acao=)', body: null },
+      { method: 'GET',    path: '/planos-alerta/{idplano}/{idnivel}',      desc: 'Associação nível↔plano por IDs',                                  body: null },
+      { method: 'POST',   path: '/planos-alerta',                          desc: 'Criar associação nível de alerta ↔ plano de ação',                body: { idnivel_alerta: 2, idplano_acao: 1 } },
+      { method: 'DELETE', path: '/planos-alerta/{idplano}/{idnivel}',      desc: 'Remover associação nível↔plano',                                  body: null },
       // RELATÓRIOS
       { method: 'GET',    path: '/relatorios',           desc: 'Listar relatórios (?idalerta=&idutilizador=)', body: null },
-      { method: 'GET',    path: '/relatorios/{id}',      desc: 'Relatório por ID',                         body: null },
-      { method: 'POST',   path: '/relatorios',           desc: 'Criar relatório',                          body: { descricao: 'Análise de ocorrência', idalerta: 1 } },
-      { method: 'DELETE', path: '/relatorios/{id}',      desc: 'Apagar relatório',                         body: null },
+      { method: 'GET',    path: '/relatorios/{id}',      desc: 'Relatório por ID',                            body: null },
+      { method: 'POST',   path: '/relatorios',           desc: 'Criar relatório',                             body: { descricao: 'Análise de ocorrência', idalerta: 1 } },
+      { method: 'DELETE', path: '/relatorios/{id}',      desc: 'Apagar relatório',                            body: null },
     ];
 
     function renderEndpoints() {

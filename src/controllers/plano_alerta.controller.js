@@ -58,8 +58,8 @@ export const obterPlanosAlerta = async (req, res, next) => {
         const { count, rows } = await PlanoAlerta.findAndCountAll({
             where,
             include: [
-                { model: PlanoAcao,    attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] },
-                { model: NivelAlerta,  attributes: ['idnivel_alerta', 'nome', 'cor', 'ordem_gravidade'] }
+                { model: PlanoAcao,   as: 'plano_acao',   attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] },
+                { model: NivelAlerta, as: 'nivel_alerta', attributes: ['idnivel_alerta', 'nome', 'cor', 'ordem_gravidade'] }
             ],
             limit,
             offset
@@ -89,8 +89,8 @@ export const obterPlanoAlertaPorIds = async (req, res, next) => {
         const pa = await PlanoAlerta.findOne({
             where: { idplano_acao, idnivel_alerta },
             include: [
-                { model: PlanoAcao,   attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] },
-                { model: NivelAlerta, attributes: ['idnivel_alerta', 'nome', 'cor', 'ordem_gravidade'] }
+                { model: PlanoAcao,   as: 'plano_acao',   attributes: ['idplano_acao', 'descricao', 'tipo_destinatario'] },
+                { model: NivelAlerta, as: 'nivel_alerta', attributes: ['idnivel_alerta', 'nome', 'cor', 'ordem_gravidade'] }
             ]
         });
 

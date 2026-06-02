@@ -240,8 +240,8 @@ NivelAlerta.belongsToMany(PlanoAcao, {
     otherKey: 'idplano_acao'
 });
 
-PlanoAlerta.belongsTo(PlanoAcao,   { foreignKey: 'idplano_acao' });
-PlanoAlerta.belongsTo(NivelAlerta, { foreignKey: 'idnivel_alerta' });
+PlanoAlerta.belongsTo(PlanoAcao,   { foreignKey: 'idplano_acao',   as: 'plano_acao' });
+PlanoAlerta.belongsTo(NivelAlerta, { foreignKey: 'idnivel_alerta', as: 'nivel_alerta' });
 
 // Sync the models with the database
 try {
@@ -251,7 +251,6 @@ try {
     console.error("Error synchronizing models:", error);
     process.exit(1);
 }
-
 
 
 // export the models for use in other modules
