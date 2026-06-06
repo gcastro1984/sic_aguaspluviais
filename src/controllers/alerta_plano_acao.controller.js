@@ -1,5 +1,5 @@
 import { AlertaPlanoAcao, Alerta, PlanoAcao, InfraestruturaUrbana } from '../models/db.config.js';
-import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError, parsePagination } from '../utils/error.utils.js';
 
 const apaLinks = (idalerta, idplano) => ({
     self:   { href: `/alertas-planos/${idalerta}/${idplano}`,  method: 'GET' },
@@ -17,6 +17,11 @@ export const criarAlertaPlanoAcao = async (req, res, next) => {
         const estadosValidos = ['pendente', 'ativo', 'concluido', 'cancelado'];
         if (!estadosValidos.includes(estado))
             return next(validationError({ estado: `Estado inválido. Use: ${estadosValidos.join(', ')}` }));
+
+        // responsavel: identificador livre (ex: 'sistema', nome de técnico/equipa)
+        // — não pode ser só espaços nem exceder 100 caracteres
+        if (responsavel.trim().length === 0 || responsavel.length > 100)
+            return next(validationError({ responsavel: 'O responsável deve ter entre 1 e 100 caracteres.' }));
 
         const alerta = await Alerta.findByPk(idalerta);
         if (!alerta) return next(notFoundError('alerta', idalerta));
@@ -48,15 +53,8 @@ export const criarAlertaPlanoAcao = async (req, res, next) => {
 export const obterAlertasPlanos = async (req, res, next) => {
     try {
         const { estado, idalerta, idplano_acao } = req.query;
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const where = {};
         if (estado) where.estado = estado;
@@ -160,6 +158,10 @@ export const atualizarAlertaPlanoAcao = async (req, res, next) => {
         // Evita que a data_inicio seja sobrescrita acidentalmente
         if (estado === 'ativo' && apa.estado === 'ativo')
             return next(validationError({ estado: 'O plano já se encontra ativo. data_inicio não pode ser alterada.' }));
+
+        // responsavel: validado apenas quando enviado (PATCH parcial)
+        if (responsavel !== undefined && (responsavel.trim().length === 0 || responsavel.length > 100))
+            return next(validationError({ responsavel: 'O responsável deve ter entre 1 e 100 caracteres.' }));
 
         if (data_inicio && data_conclusao && new Date(data_conclusao) < new Date(data_inicio))
             return next(validationError({ data_conclusao: 'data_conclusao não pode ser anterior a data_inicio' }));

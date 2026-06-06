@@ -1,5 +1,5 @@
 import { AreaRisco } from '../models/db.config.js';
-import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
+import { validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError, conflictError, parsePagination } from '../utils/error.utils.js';
 
 // Links HATEOAS — acções disponíveis para uma área de risco específica
 const areaLinks = (id) => ({
@@ -39,15 +39,8 @@ export const criarAreaRisco = async (req, res, next) => {
 export const obterAreasRisco = async (req, res, next) => {
     try {
         const { vulnerabilidade } = req.query;
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         // Valida o filtro antes de consultar a BD
         if (vulnerabilidade !== undefined) {

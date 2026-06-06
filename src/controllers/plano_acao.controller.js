@@ -1,8 +1,8 @@
 import { PlanoAcao } from '../models/db.config.js';
-import { missingFieldsValidationError, validationError, sequelizeValidationError, notFoundError, genericError, conflictError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, validationError, sequelizeValidationError, notFoundError, genericError, conflictError, parsePagination } from '../utils/error.utils.js';
 
 // Tipos de destinatário aceites — determina quem recebe notificações do plano
-const TIPOS_DESTINATARIO_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade'];
+const TIPOS_DESTINATARIO_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade','administrador','protecao_civil','bombeiros','policia_municipal','gestao_infraestrutura','hospital'];
 
 // Links HATEOAS — acções disponíveis para um plano de ação específico
 const planoLinks = (id) => ({
@@ -18,6 +18,10 @@ export const criarPlanoAcao = async (req, res, next) => {
 
         if (!descricao || !tipo_destinatario)
             return next(missingFieldsValidationError(['descricao', 'tipo_destinatario']));
+
+        // descricao: não pode ser só espaços nem exceder 500 caracteres
+        if (descricao.trim().length === 0 || descricao.length > 500)
+            return next(validationError({ descricao: 'A descrição deve ter entre 1 e 500 caracteres.' }));
 
         if (!TIPOS_DESTINATARIO_VALIDOS.includes(tipo_destinatario))
             return next(validationError({ tipo_destinatario: `Tipo inválido. Use: ${TIPOS_DESTINATARIO_VALIDOS.join(', ')}` }));
@@ -36,15 +40,8 @@ export const criarPlanoAcao = async (req, res, next) => {
 // GET /planos-acao — lista todos os planos com paginação
 export const obterPlanosAcao = async (req, res, next) => {
     try {
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const { count, rows } = await PlanoAcao.findAndCountAll({ limit, offset });
 
@@ -64,7 +61,10 @@ export const obterPlanosAcao = async (req, res, next) => {
 // GET /planos-acao/:id — devolve um plano específico pelo ID
 export const obterPlanoAcaoPorId = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
         const planoAcao = await PlanoAcao.findByPk(id);
 
         if (!planoAcao) return next(notFoundError('plano_acao', id));
@@ -81,7 +81,10 @@ export const obterPlanoAcaoPorId = async (req, res, next) => {
 // PATCH /planos-acao/:id — actualização parcial (só os campos enviados são alterados)
 export const atualizarPlanoAcao = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
         const { descricao, tipo_destinatario } = req.body;
 
         const planoAcao = await PlanoAcao.findByPk(id);
@@ -89,6 +92,10 @@ export const atualizarPlanoAcao = async (req, res, next) => {
 
         if (tipo_destinatario !== undefined && !TIPOS_DESTINATARIO_VALIDOS.includes(tipo_destinatario))
             return next(validationError({ tipo_destinatario: `Tipo inválido. Use: ${TIPOS_DESTINATARIO_VALIDOS.join(', ')}` }));
+
+        // descricao: validada apenas quando enviada (PATCH parcial)
+        if (descricao !== undefined && (descricao.trim().length === 0 || descricao.length > 500))
+            return next(validationError({ descricao: 'A descrição deve ter entre 1 e 500 caracteres.' }));
 
         const updateData = {};
         if (descricao !== undefined) updateData.descricao = descricao;
@@ -111,7 +118,10 @@ export const atualizarPlanoAcao = async (req, res, next) => {
 // ATENÇÃO — SEM onDelete:CASCADE para plano_alerta: bloqueia se estiver configurado em níveis de alerta
 export const apagarPlanoAcao = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
         const planoAcao = await PlanoAcao.findByPk(id);
 
         if (!planoAcao) return next(notFoundError('plano_acao', id));

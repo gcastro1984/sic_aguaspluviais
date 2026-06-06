@@ -1,5 +1,5 @@
 import { PlanoAlerta, PlanoAcao, NivelAlerta } from '../models/db.config.js';
-import { missingFieldsValidationError, notFoundError, validationError, genericError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, notFoundError, validationError, genericError, parsePagination } from '../utils/error.utils.js';
 
 const paLinks = (idplano_acao, idnivel_alerta) => ({
     self:   { href: `/planos-alerta/${idplano_acao}/${idnivel_alerta}`, method: 'GET' },
@@ -41,15 +41,8 @@ export const criarPlanoAlerta = async (req, res, next) => {
 export const obterPlanosAlerta = async (req, res, next) => {
     try {
         const { idnivel_alerta, idplano_acao } = req.query;
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const where = {};
         if (idnivel_alerta) where.idnivel_alerta = parseInt(idnivel_alerta);

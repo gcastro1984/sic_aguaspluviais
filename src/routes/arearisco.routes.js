@@ -4,7 +4,7 @@ import { verifyToken, requireRole } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
 
-const writeRoles = requireRole('administrador', 'operador_municipal');
+const writeRoles = requireRole('administrador', 'analista_risco');
 
 // GET /areas-risco?vulnerabilidade=3&page=1&limit=20
 router.get('/',    obterAreasRisco);

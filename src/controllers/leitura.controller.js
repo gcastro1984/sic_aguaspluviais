@@ -1,5 +1,5 @@
 import { LeituraSensor, Sensor, Alerta, AlertaPlanoAcao, PlanoAlerta, PlanoAcao, Destinatarios, InfraestruturaUrbana, AreaRisco, Relatorio, Utilizador, Notificacao } from '../models/db.config.js';
-import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError } from "../utils/error.utils.js";
+import { conflictError, validationError, sequelizeValidationError, missingFieldsValidationError, notFoundError, genericError, parsePagination } from "../utils/error.utils.js";
 import { verificarAlertas } from '../utils/alerta.utils.js';
 import { enviarEmailAlerta } from '../utils/email.utils.js';
 
@@ -14,20 +14,17 @@ const leituraLinks = (id) => ({
 // GET /leituras?page=1&limit=20
 export const obterLeituras = async (req, res, next) => {
     try {
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const { count, rows } = await LeituraSensor.findAndCountAll({ limit, offset, order: [['data_registo', 'DESC']] });
 
         const data  = rows.map(l => ({ ...l.toJSON(), _links: leituraLinks(l.idleitura_sensor) }));
         const pages = Math.ceil(count / limit);
+
+        // Rejeita páginas fora dos limites (só verifica se existem registos)
+        if (page > pages && pages > 0)
+            return next(validationError({ page: `Página ${page} não existe. Total de páginas: ${pages}.` }));
 
         return res.status(count > limit ? 206 : 200).json({
             data,
@@ -42,23 +39,19 @@ export const obterLeituras = async (req, res, next) => {
 
 export const obterLeiturasPorSensor = async (req, res, next) => {
     try {
-        const { idsensor } = req.params;
+        // Valida o idsensor antes de qualquer acesso à BD
+        const idsensor = parseInt(req.params.idsensor);
+        if (isNaN(idsensor) || idsensor <= 0)
+            return next(validationError({ idsensor: 'Deve ser um número inteiro positivo.' }));
 
         const sensor = await Sensor.findByPk(idsensor);
         if (!sensor) return next(notFoundError('sensor', idsensor));
 
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const { count, rows } = await LeituraSensor.findAndCountAll({
-            where: { idsensor: parseInt(idsensor) },
+            where: { idsensor },
             limit,
             offset,
             order: [['data_registo', 'DESC']]
@@ -66,6 +59,10 @@ export const obterLeiturasPorSensor = async (req, res, next) => {
 
         const data  = rows.map(l => ({ ...l.toJSON(), _links: leituraLinks(l.idleitura_sensor) }));
         const pages = Math.ceil(count / limit);
+
+        // Rejeita páginas fora dos limites (só verifica se existem registos)
+        if (page > pages && pages > 0)
+            return next(validationError({ page: `Página ${page} não existe. Total de páginas: ${pages}.` }));
 
         return res.status(count > limit ? 206 : 200).json({
             data,
@@ -82,7 +79,11 @@ export const obterLeiturasPorSensor = async (req, res, next) => {
 
 export const obterLeituraPorId = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        // Valida o id antes de qualquer acesso à BD
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
         const leitura = await LeituraSensor.findByPk(id);
 
         if (!leitura) return next(notFoundError('leitura', id));
@@ -101,14 +102,23 @@ export const obterLeituraPorId = async (req, res, next) => {
 
 export const apagarLeitura = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        // Valida o id antes de qualquer acesso à BD
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
         const leitura = await LeituraSensor.findByPk(id);
 
         if (!leitura) return next(notFoundError('leitura', id));
 
+        // ATENÇÃO — a associação Alerta→LeituraSensor (idleitura_sensor) NÃO tem onDelete:CASCADE.
+        // Se um alerta referenciar esta leitura, a BD lança SequelizeForeignKeyConstraintError → 409.
         await leitura.destroy();
         return res.status(204).send();
     } catch (error) {
+        // SequelizeForeignKeyConstraintError: existe um alerta associado a esta leitura
+        if (error.name === 'SequelizeForeignKeyConstraintError')
+            return next(conflictError('Não é possível apagar: esta leitura tem um alerta associado. Remova o alerta primeiro.'));
         return next(genericError('Erro ao apagar leitura'));
     }
 };
@@ -126,10 +136,18 @@ export const criarLeitura = async (req, res, next) => {
         if (!data_observacao) missingFields.push('data_observacao');
         if (missingFields.length) return next(missingFieldsValidationError(missingFields));
 
+        // idsensor: tem de ser um inteiro positivo (consistente com os restantes endpoints)
+        if (isNaN(parseInt(idsensor)) || parseInt(idsensor) <= 0)
+            return next(validationError({ idsensor: 'Deve ser um número inteiro positivo.' }));
+
         if (!TIPO_VARIAVEL_VALIDOS.includes(tipo_variavel))
             return next(validationError({ tipo_variavel: `Tipo inválido. Use: ${TIPO_VARIAVEL_VALIDOS.join(', ')}` }));
 
-        if (Number(valor) < 0)
+        // valor: tem de ser numérico (Number("abc") === NaN passaria no check < 0)
+        if (isNaN(Number(valor)))
+            return next(validationError({ valor: 'O valor deve ser numérico' }));
+        // valores negativos só são permitidos para temperatura (pode estar abaixo de 0 °C)
+        if (Number(valor) < 0 && tipo_variavel !== 'temperatura')
             return next(validationError({ valor: 'O valor não pode ser negativo' }));
 
         const dataObs = new Date(data_observacao);
@@ -177,12 +195,24 @@ export const criarLeitura = async (req, res, next) => {
                 unidade: `Unidade inválida para sensor do tipo '${sensor.tipo}'. Use: ${regra.unidades.join(', ')}`
             }));
 
-        // sequelize valida automaticamente
-        const newLeitura = await LeituraSensor.create(req.body);
+        // Grandezas em percentagem (nível de água, humidade) têm de estar entre 0 e 100
+        if (unidade === '%' && Number(valor) > 100)
+            return next(validationError({ valor: 'Para unidade "%" o valor deve estar entre 0 e 100' }));
+
+        // Cria a leitura apenas com os campos permitidos — evita mass assignment via req.body
+        // (qualidade_dado undefined → o modelo aplica o valor por defeito)
+        const newLeitura = await LeituraSensor.create({
+            idsensor,
+            tipo_variavel,
+            valor,
+            unidade,
+            data_observacao,
+            qualidade_dado
+        });
 
         // verificar/classificar alertas
         const resultado = await verificarAlertas(newLeitura);
-        console.log("Resultado da verificação de alertas:", resultado);
+        
 
         let alertaCriado = null;
 
@@ -191,7 +221,6 @@ export const criarLeitura = async (req, res, next) => {
             const existente = await Alerta.findOne({
                 where: { idarea_risco: resultado.idarea_risco, estado: "ativo" }
             });
-            console.log("Alerta existente encontrado:", existente);
 
             if (resultado.nivel > 1 && existente) {
                 // condições agravadas ou mantidas → actualizar alerta existente

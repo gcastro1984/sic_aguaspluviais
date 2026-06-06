@@ -497,8 +497,7 @@
             <option value="falso_positivo">Falso Positivo</option>
           </select>
           <button class="btn btn-outline" onclick="loadAlertas()"><i class="fa fa-rotate"></i></button>
-          <button class="btn btn-primary" onclick="openModal('modal-novo-alerta')"><i class="fa fa-plus"></i> Criar
-            Alerta</button>
+          <!-- Botão "Criar Alerta" removido: os alertas são criados automaticamente no momento da leitura do sensor -->
         </div>
       </div>
       <div class="card">
@@ -853,7 +852,6 @@
         </div>
         <div style="display:flex;gap:.5rem">
           <button class="btn btn-outline" onclick="loadRelatorios()"><i class="fa fa-rotate"></i></button>
-          <button class="btn btn-primary" onclick="openModal('modal-novo-relatorio')"><i class="fa fa-plus"></i> Novo Relatório</button>
         </div>
       </div>
       <div class="card">
@@ -1145,26 +1143,7 @@
     </div>
   </div>
 
-  <!-- Novo Alerta -->
-  <div class="modal-backdrop" id="modal-novo-alerta">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>Criar Alerta (POST /alertas)</h3>
-        <button class="modal-close" onclick="closeModal('modal-novo-alerta')">✕</button>
-      </div>
-      <p style="font-size:.78rem;color:var(--text-dim);margin-bottom:1rem">O alerta é criado com base numa leitura de
-        sensor. O sistema calcula automaticamente o nível de alerta.</p>
-      <div class="form-group">
-        <label>ID da Leitura do Sensor *</label>
-        <input type="number" id="m-alerta-leitura" placeholder="Ex: 42" />
-      </div>
-      <div class="form-actions" style="margin-top:1rem">
-        <button class="btn btn-primary" onclick="criarAlerta()"><i class="fa fa-check"></i> Processar Alerta</button>
-        <button class="btn btn-outline" onclick="closeModal('modal-novo-alerta')">Cancelar</button>
-      </div>
-      <div class="api-response" id="modal-alerta-resp"></div>
-    </div>
-  </div>
+  <!-- Modal "Novo Alerta" removido: os alertas são criados automaticamente no momento da leitura do sensor -->
 
   <!-- Nova Área de Risco -->
   <div class="modal-backdrop" id="modal-nova-area">
@@ -1235,7 +1214,13 @@
             <option value="tecnico">Técnico</option>
             <option value="responsavel">Responsável</option>
             <option value="cidadao">Cidadão</option>
-            <option value="entidade">Entidade</option>
+            <option value="autoridade">Autoridade</option>
+            <option value="administrador">Administrador</option>
+            <option value="protecao_civil">Proteção Civil</option>
+            <option value="bombeiros">Bombeiros</option>
+            <option value="policia_municipal">Polícia Municipal</option>
+            <option value="gestao_infraestrutura">Gestão de Infraestrutura</option>
+            <option value="hospital">Hospital</option>
           </select>
         </div>
       </div>
@@ -1244,6 +1229,51 @@
         <button class="btn btn-outline" onclick="closeModal('modal-novo-destinatario')">Cancelar</button>
       </div>
       <div class="api-response" id="modal-dest-resp"></div>
+    </div>
+  </div>
+
+  <!-- Editar Destinatário -->
+  <div class="modal-backdrop" id="modal-editar-destinatario">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Editar Destinatário</h3>
+        <button class="modal-close" onclick="closeModal('modal-editar-destinatario')">✕</button>
+      </div>
+      <input type="hidden" id="edit-dest-id" />
+      <div class="form-grid">
+        <div class="form-group span-2">
+          <label>Nome *</label>
+          <input type="text" id="edit-dest-nome" placeholder="Ex: João Silva" />
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="edit-dest-email" placeholder="joao@example.com" />
+        </div>
+        <div class="form-group">
+          <label>Telefone</label>
+          <input type="text" id="edit-dest-tel" placeholder="+351 912 345 678" />
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="edit-dest-tipo">
+            <option value="tecnico">Técnico</option>
+            <option value="responsavel">Responsável</option>
+            <option value="cidadao">Cidadão</option>
+            <option value="autoridade">Autoridade</option>
+            <option value="administrador">Administrador</option>
+            <option value="protecao_civil">Proteção Civil</option>
+            <option value="bombeiros">Bombeiros</option>
+            <option value="policia_municipal">Polícia Municipal</option>
+            <option value="gestao_infraestrutura">Gestão de Infraestrutura</option>
+            <option value="hospital">Hospital</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions" style="margin-top:1rem">
+        <button class="btn btn-primary" onclick="guardarDestinatario()"><i class="fa fa-check"></i> Guardar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-editar-destinatario')">Cancelar</button>
+      </div>
+      <div class="api-response" id="modal-editar-dest-resp"></div>
     </div>
   </div>
 
@@ -1429,7 +1459,13 @@
             <option value="tecnico">Técnico</option>
             <option value="responsavel">Responsável</option>
             <option value="cidadao">Cidadão</option>
-            <option value="entidade">Entidade</option>
+            <option value="autoridade">Autoridade</option>
+            <option value="administrador">Administrador</option>
+            <option value="protecao_civil">Proteção Civil</option>
+            <option value="bombeiros">Bombeiros</option>
+            <option value="policia_municipal">Polícia Municipal</option>
+            <option value="gestao_infraestrutura">Gestão de Infraestrutura</option>
+            <option value="hospital">Hospital</option>
           </select>
         </div>
       </div>
@@ -1441,32 +1477,40 @@
     </div>
   </div>
 
-  <!-- Novo Relatório -->
-  <div class="modal-backdrop" id="modal-novo-relatorio">
+  <!-- Editar Plano Autónomo -->
+  <div class="modal-backdrop" id="modal-editar-plano-auton">
     <div class="modal">
       <div class="modal-header">
-        <h3>Novo Relatório</h3>
-        <button class="modal-close" onclick="closeModal('modal-novo-relatorio')">✕</button>
+        <h3>Editar Plano de Ação</h3>
+        <button class="modal-close" onclick="closeModal('modal-editar-plano-auton')">✕</button>
       </div>
+      <input type="hidden" id="edit-plauton-id" />
       <div class="form-grid">
         <div class="form-group span-2">
           <label>Descrição *</label>
-          <textarea id="m-rel-desc" placeholder="Descreva a ocorrência..."></textarea>
+          <textarea id="edit-plauton-desc" placeholder="Descreva o plano de ação..."></textarea>
         </div>
         <div class="form-group">
-          <label>ID Utilizador *</label>
-          <input type="number" id="m-rel-utilizador" placeholder="Ex: 1" />
-        </div>
-        <div class="form-group">
-          <label>ID Alerta (opcional)</label>
-          <input type="number" id="m-rel-alerta" placeholder="Ex: 5" />
+          <label>Tipo de Destinatário *</label>
+          <select id="edit-plauton-tipo">
+            <option value="tecnico">Técnico</option>
+            <option value="responsavel">Responsável</option>
+            <option value="cidadao">Cidadão</option>
+            <option value="autoridade">Autoridade</option>
+            <option value="administrador">Administrador</option>
+            <option value="protecao_civil">Proteção Civil</option>
+            <option value="bombeiros">Bombeiros</option>
+            <option value="policia_municipal">Polícia Municipal</option>
+            <option value="gestao_infraestrutura">Gestão de Infraestrutura</option>
+            <option value="hospital">Hospital</option>
+          </select>
         </div>
       </div>
       <div class="form-actions" style="margin-top:1rem">
-        <button class="btn btn-primary" onclick="criarRelatorio()"><i class="fa fa-check"></i> Criar</button>
-        <button class="btn btn-outline" onclick="closeModal('modal-novo-relatorio')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarPlanoAuton()"><i class="fa fa-check"></i> Guardar</button>
+        <button class="btn btn-outline" onclick="closeModal('modal-editar-plano-auton')">Cancelar</button>
       </div>
-      <div class="api-response" id="modal-rel-resp"></div>
+      <div class="api-response" id="modal-editar-plauton-resp"></div>
     </div>
   </div>
 

@@ -1,8 +1,8 @@
 import { Destinatarios } from '../models/db.config.js';
-import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, conflictError, genericError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, conflictError, genericError, parsePagination } from '../utils/error.utils.js';
 
 // Tipos de destinatário aceites — usado para filtrar quem recebe notificações automáticas
-const TIPOS_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade'];
+const TIPOS_VALIDOS = ['tecnico', 'responsavel', 'cidadao', 'autoridade','administrador','protecao_civil','bombeiros','policia_municipal','gestao_infraestrutura','hospital'];
 
 // Links HATEOAS — acções disponíveis para um destinatário específico
 const destLinks = (id) => ({
@@ -25,6 +25,10 @@ export const criarDestinatario = async (req, res, next) => {
         if (!TIPOS_VALIDOS.includes(tipo))
             return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_VALIDOS.join(', ')}` }));
 
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email))
+            return next(validationError({ email: 'Formato de email inválido.' }));
+
         const destinatario = await Destinatarios.create({ tipo, nome, email, contato });
 
         return res.status(201).json({
@@ -40,15 +44,8 @@ export const criarDestinatario = async (req, res, next) => {
 // GET /destinatarios — lista todos os destinatários com paginação
 export const obterDestinatarios = async (req, res, next) => {
     try {
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const { count, rows } = await Destinatarios.findAndCountAll({ limit, offset });
 
@@ -94,6 +91,12 @@ export const atualizarDestinatario = async (req, res, next) => {
         if (tipo !== undefined && !TIPOS_VALIDOS.includes(tipo))
             return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_VALIDOS.join(', ')}` }));
 
+        if (email !== undefined) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email))
+                return next(validationError({ email: 'Formato de email inválido.' }));
+        }
+
         const updateData = {};
         if (tipo !== undefined) updateData.tipo = tipo;
         if (nome !== undefined) updateData.nome = nome;
@@ -128,6 +131,10 @@ export const substituirDestinatario = async (req, res, next) => {
 
         if (!TIPOS_VALIDOS.includes(tipo))
             return next(validationError({ tipo: `Tipo inválido. Use: ${TIPOS_VALIDOS.join(', ')}` }));
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email))
+            return next(validationError({ email: 'Formato de email inválido.' }));
 
         const destinatario = await Destinatarios.findByPk(id);
         if (!destinatario) return next(notFoundError('destinatário', id));

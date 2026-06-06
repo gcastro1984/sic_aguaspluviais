@@ -1,5 +1,5 @@
 import { Notificacao, Alerta, Destinatarios, Sensor } from '../models/db.config.js';
-import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, notFoundError, sequelizeValidationError, validationError, genericError, parsePagination } from '../utils/error.utils.js';
 
 const notifLinks = (id) => ({
     self:   { href: `/notificacoes/${id}`,  method: 'GET' },
@@ -84,15 +84,8 @@ export const criarNotificacao = async (req, res, next) => {
 
 export const obterNotificacoes = async (req, res, next) => {
     try {
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const { count, rows } = await Notificacao.findAndCountAll({
             include: [
@@ -119,7 +112,9 @@ export const obterNotificacoes = async (req, res, next) => {
 
 export const obterNotificacaoPorId = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
         const notificacao = await Notificacao.findByPk(id, {
             include: [
                 { model: Alerta,       attributes: ['idalerta', 'idarea_risco', 'idnivel_alerta', 'descricao', 'estado'] },
@@ -140,7 +135,9 @@ export const obterNotificacaoPorId = async (req, res, next) => {
 
 export const atualizarNotificacao = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
         const { idalerta, iddestinatario, canal, data_envio, estado_envio, data_confirmacao, mensagem, erro_envio } = req.body;
 
         const notificacao = await Notificacao.findByPk(id);
@@ -188,7 +185,9 @@ export const atualizarNotificacao = async (req, res, next) => {
 
 export const apagarNotificacao = async (req, res, next) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
         const notificacao = await Notificacao.findByPk(id);
 
         if (!notificacao) return next(notFoundError('notificação', id));

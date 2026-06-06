@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import { PrevisaoMeteorologica, AreaRisco } from '../models/db.config.js';
-import { missingFieldsValidationError, validationError, notFoundError, genericError } from '../utils/error.utils.js';
+import { missingFieldsValidationError, validationError, notFoundError, genericError, parsePagination } from '../utils/error.utils.js';
 
 const previsaoLinks = (id) => ({
     self:   { href: `/previsoes/${id}`,  method: 'GET' },
@@ -57,15 +57,8 @@ export const criarPrevisao = async (req, res, next) => {
 export const obterPrevisoes = async (req, res, next) => {
     try {
         const { idarea_risco, confianca_minima } = req.query;
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const where = {};
         if (idarea_risco) where.idarea_risco = parseInt(idarea_risco);

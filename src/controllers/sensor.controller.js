@@ -1,5 +1,5 @@
 import { Sensor, Utilizador, Notificacao, LeituraSensor } from '../models/db.config.js';
-import { sequelizeValidationError, validationError, missingFieldsValidationError, notFoundError, genericError } from '../utils/error.utils.js';
+import { sequelizeValidationError, validationError, missingFieldsValidationError, notFoundError, genericError, parsePagination } from '../utils/error.utils.js';
 import { enviarEmailCalibracao } from '../utils/email.utils.js';
 
 // Tipos de sensor aceites no sistema
@@ -25,21 +25,10 @@ const sensorLinks = (id) => ({
 // GET /sensores — lista todos os sensores com paginação
 export const obterSensores = async (req, res, next) => {
     try {
-        // Paginação: limit máx 100, page ou offset aceites como parâmetros
-        //?limit= da query string. parseInt converte para inteiro, || 20 garante o valor padrão se não vier. Math.max(1, ...) impede valores ≤ 0. Math.min(100, ...) impede que o cliente peça mais de 100 registos de uma vez.
-
-        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));  //
-
-        // Se o cliente enviou ?offset=, usa esse modo. offset é o número de registos a saltar. page é calculado a partir do offset para o campo pagination da resposta (ex: offset=20, limit=10 → página 3).
-
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        // Paginação validada: limit (1..100), offset (>=0) e page (>=1) têm de ser
+        // inteiros; valores inválidos devolvem 400 (ver parsePagination em error.utils.js).
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
         // Uma única query ao MySQL que devolve dois valores: count = total de registos existentes (sem paginação), rows = apenas os registos da página pedida. Equivale a SELECT ... LIMIT x OFFSET y + SELECT COUNT(*) em simultâneo
 
         // Filtro opcional por status — validado para evitar queries com valores inválidos
@@ -206,7 +195,7 @@ export const atualizarSensor = async (req, res, next) => {
     }
 };
 
-// POST /sensores/:id/calibracao — regista calibração, atualiza data de manutenção
+// POST /sensores/:id/calibrar — regista calibração, atualiza data de manutenção
 //   e notifica todos os utilizadores com tipo 'operador_municipal'
 export const registarCalibracao = async (req, res, next) => {
     try {
@@ -284,7 +273,7 @@ export const registarCalibracao = async (req, res, next) => {
 
         return res.status(200).json({
             message: `Calibração registada. ${enviados} notificação(ões) enviada(s)${falhados ? `, ${falhados} falhou` : ''}.`,
-            ...sensor.reload().then(s => s.toJSON())
+            ...sensor.toJSON()
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -292,8 +281,9 @@ export const registarCalibracao = async (req, res, next) => {
 };
 
 // DELETE /sensores/:id — apaga o sensor
-// ATENÇÃO — onDelete:CASCADE activo: apagar o sensor apaga também todas as suas leituras
-//           e cada leitura apaga o alerta associado (ver db.config.js)
+// ATENÇÃO — onDelete:CASCADE activo (Sensor→LeituraSensor): apagar o sensor apaga também as suas leituras.
+//           NOTA: a associação Alerta→LeituraSensor NÃO tem CASCADE — se uma leitura estiver
+//           referenciada por um alerta, a eliminação em cascata é bloqueada pela BD (ver db.config.js)
 export const apagarSensor = async (req, res, next) => {
     try {
         const id = parseInt(req.params.id);

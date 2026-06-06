@@ -95,3 +95,69 @@ export const unauthorizedError = (message = 'Credenciais inválidas') => {
     err.code   = 'unauthorized';
     return err;
 };
+
+// Valida e normaliza os parâmetros de paginação da query string.
+// Regras (ver slides REST: GET /orders — "Invalid Pagination Inputs (400)"):
+//   - limit  : inteiro positivo (1..100). Default 20. Acima de 100 é limitado a 100.
+//   - offset : inteiro não-negativo (>= 0). Default 0.
+//   - page   : inteiro positivo (>= 1). Default 1.
+// offset tem prioridade sobre page quando ambos são enviados.
+//
+// Devolve { limit, offset, page } em caso de sucesso,
+// ou { error } (um validationError 400) quando algum valor é inválido.
+//
+// Uso no controller:
+//   const { limit, offset, page, error } = parsePagination(req);
+//   if (error) return next(error);
+export const parsePagination = (req, { defaultLimit = 20, maxLimit = 100 } = {}) => {
+    const errors = {};
+
+    // Converte o valor da query para inteiro; devolve NaN se não for um
+    // inteiro "limpo" (rejeita '', espaços, '1.5', 'abc', '10x', ...).
+    const toInt = (valor) => {
+        const texto = String(valor).trim();
+        if (texto === '') return NaN;
+        const n = Number(texto);
+        return Number.isInteger(n) ? n : NaN;
+    };
+
+    // limit
+    let limit = defaultLimit;
+    if (req.query.limit !== undefined) {
+        const n = toInt(req.query.limit);
+        if (Number.isNaN(n) || n < 1) {
+            errors.limit = ['limit must be a positive integer'];
+        } else {
+            limit = Math.min(maxLimit, n);
+        }
+    }
+
+    // offset / page
+    let offset, page;
+    if (req.query.offset !== undefined) {
+        const n = toInt(req.query.offset);
+        if (Number.isNaN(n) || n < 0) {
+            errors.offset = ['offset must be a non-negative integer'];
+        } else {
+            offset = n;
+            page   = Math.floor(offset / limit) + 1;
+        }
+    } else if (req.query.page !== undefined) {
+        const n = toInt(req.query.page);
+        if (Number.isNaN(n) || n < 1) {
+            errors.page = ['page must be a positive integer'];
+        } else {
+            page   = n;
+            offset = (page - 1) * limit;
+        }
+    } else {
+        page   = 1;
+        offset = 0;
+    }
+
+    if (Object.keys(errors).length > 0) {
+        return { error: validationError('Validation failed', errors) };
+    }
+
+    return { limit, offset, page };
+};

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Utilizador } from '../models/db.config.js';
-import { genericError, missingFieldsValidationError, validationError, conflictError, notFoundError, sequelizeValidationError, unauthorizedError } from '../utils/error.utils.js';
+import { genericError, missingFieldsValidationError, validationError, conflictError, notFoundError, sequelizeValidationError, unauthorizedError, parsePagination } from '../utils/error.utils.js';
 
 const userLinks = (id) => ({
     self:   { href: `/utilizadores/${id}`,  method: 'GET' },
@@ -148,15 +148,19 @@ export const logout = async (req, res, next) => {
 // GET /utilizadores/:id  – admin ou próprio utilizador
 export const obterUtilizador = async (req, res, next) => {
     try {
-        const user = await Utilizador.findByPk(req.params.id, {
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
+        const user = await Utilizador.findByPk(id, {
             attributes: ['idutilizador', 'email', 'tipo']
         });
 
-        if (!user) return next(notFoundError('utilizador', req.params.id));
+        if (!user) return next(notFoundError('utilizador', id));
 
         return res.status(200).json({
             ...user.toJSON(),
-            _links: { ...userLinks(req.params.id), allUtilizadores: { href: '/utilizadores', method: 'GET' } }
+            _links: { ...userLinks(id), allUtilizadores: { href: '/utilizadores', method: 'GET' } }
         });
     } catch (error) {
         return next(genericError(error.message));
@@ -166,15 +170,8 @@ export const obterUtilizador = async (req, res, next) => {
 // GET /utilizadores  – apenas admin
 export const obterUtilizadores = async (req, res, next) => {
     try {
-        const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
-        let offset, page;
-        if (req.query.offset !== undefined) {
-            offset = Math.max(0, parseInt(req.query.offset) || 0);
-            page   = Math.floor(offset / limit) + 1;
-        } else {
-            page   = Math.max(1, parseInt(req.query.page) || 1);
-            offset = (page - 1) * limit;
-        }
+        const { limit, offset, page, error } = parsePagination(req);
+        if (error) return next(error);
 
         const { count, rows } = await Utilizador.findAndCountAll({
             attributes: ['idutilizador', 'email', 'tipo'],
@@ -198,8 +195,12 @@ export const obterUtilizadores = async (req, res, next) => {
 // PATCH /utilizadores/:id  – admin pode editar tudo; próprio utilizador só email/password
 export const editarUtilizador = async (req, res, next) => {
     try {
-        const utilizador = await Utilizador.findByPk(req.params.id);
-        if (!utilizador) return next(notFoundError('utilizador', req.params.id));
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
+        const utilizador = await Utilizador.findByPk(id);
+        if (!utilizador) return next(notFoundError('utilizador', id));
 
         const isAdmin = req.user?.tipo === 'administrador';
         const { email, password, tipo } = req.body;
@@ -265,8 +266,12 @@ export const editarUtilizador = async (req, res, next) => {
 // DELETE /utilizadores/:id  – apenas admin
 export const apagarUtilizador = async (req, res, next) => {
     try {
-        const utilizador = await Utilizador.findByPk(req.params.id);
-        if (!utilizador) return next(notFoundError('utilizador', req.params.id));
+        const id = parseInt(req.params.id);
+        if (isNaN(id) || id <= 0)
+            return next(validationError({ id: 'Deve ser um número inteiro positivo.' }));
+
+        const utilizador = await Utilizador.findByPk(id);
+        if (!utilizador) return next(notFoundError('utilizador', id));
 
         // Regra de negócio: garantir que o sistema nunca fica sem administrador
         // Se o utilizador a apagar é administrador, verificar se existe pelo menos mais um

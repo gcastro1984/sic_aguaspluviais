@@ -480,12 +480,7 @@
       return `<span class="badge badge-${cls}">${names[n] || `N${n}`}</span>`;
     }
 
-    async function criarAlerta() {
-      const body = { idleitura_sensor: parseInt(document.getElementById('m-alerta-leitura').value) };
-      const r = await apiCall('POST', '/alertas', body);
-      showResponse('modal-alerta-resp', r);
-      if (r.ok) { setTimeout(() => closeModal('modal-novo-alerta'), 1500); loadAlertas(); }
-    }
+    // Função criarAlerta() removida: os alertas são criados automaticamente no momento da leitura do sensor
 
     async function editAlerta(id) {
       const estado = prompt('Novo estado (ativo / resolvido / cancelado):');
@@ -665,7 +660,7 @@
       <td>${d.email || '—'}</td>
       <td class="td-mono">${d.contato || '—'}</td>
       <td>${d.tipo || '—'}</td>
-      <td>${actions(`''`, `apagarDestinatario(${d.iddestinatario || d.id})`)}</td>
+      <td>${actions(`editDestinatario(${d.iddestinatario || d.id})`, `apagarDestinatario(${d.iddestinatario || d.id})`)}</td>
     </tr>
   `).join('');
     }
@@ -687,6 +682,34 @@
       const r = await apiCall('DELETE', `/destinatarios/${id}`);
       alert(r.ok ? 'Apagado!' : 'Erro: ' + JSON.stringify(r.data));
       loadDestinatarios();
+    }
+
+    // Carrega o destinatário e abre a modal de edição com os campos pré-preenchidos
+    async function editDestinatario(id) {
+      const r = await apiCall('GET', `/destinatarios/${id}`);
+      if (!r.ok) { alert('Erro ao carregar destinatário: ' + JSON.stringify(r.data)); return; }
+      const d = r.data;
+      document.getElementById('edit-dest-id').value    = d.iddestinatario || id;
+      document.getElementById('edit-dest-nome').value  = d.nome    || '';
+      document.getElementById('edit-dest-email').value = d.email   || '';
+      document.getElementById('edit-dest-tel').value   = d.contato || '';
+      document.getElementById('edit-dest-tipo').value  = d.tipo    || 'tecnico';
+      const resp = document.getElementById('modal-editar-dest-resp');
+      resp.className = 'api-response'; resp.textContent = '';
+      openModal('modal-editar-destinatario');
+    }
+
+    async function guardarDestinatario() {
+      const id = document.getElementById('edit-dest-id').value;
+      const body = {
+        nome:    document.getElementById('edit-dest-nome').value,
+        email:   document.getElementById('edit-dest-email').value,
+        contato: document.getElementById('edit-dest-tel').value,
+        tipo:    document.getElementById('edit-dest-tipo').value,
+      };
+      const r = await apiCall('PATCH', `/destinatarios/${id}`, body);
+      showResponse('modal-editar-dest-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-editar-destinatario'), 1200); loadDestinatarios(); }
     }
 
     // ─── NOTIFICAÇÕES ──────────────────────────────────────
@@ -847,7 +870,7 @@
       const body = {};
       if (data) body.data_proxima_manutencao = data;  // YYYY-MM-DD direto, sem conversão timezone
       if (obs)  body.observacoes = obs;
-      const r = await apiCall('POST', `/sensores/${id}/calibracao`, body);
+      const r = await apiCall('POST', `/sensores/${id}/calibrar`, body);
       showResponse('modal-calib-resp', r);
       if (r.ok) { setTimeout(() => closeModal('modal-calibracao'), 1500); loadSensores(); }
     }
@@ -881,12 +904,28 @@
       if (r.ok) { setTimeout(() => closeModal('modal-novo-plano-auton'), 1200); loadPlanosAuton(); }
     }
 
+    // Carrega o plano e abre a modal de edição (descrição + tipo de destinatário)
     async function editPlanoAuton(id) {
-      const desc = prompt('Nova descrição:');
-      if (!desc) return;
-      const r = await apiCall('PATCH', `/planos-acao/${id}`, { descricao: desc });
-      alert(r.ok ? 'Atualizado!' : 'Erro: ' + JSON.stringify(r.data));
-      loadPlanosAuton();
+      const r = await apiCall('GET', `/planos-acao/${id}`);
+      if (!r.ok) { alert('Erro ao carregar plano: ' + JSON.stringify(r.data)); return; }
+      const p = r.data;
+      document.getElementById('edit-plauton-id').value   = p.idplano_acao || id;
+      document.getElementById('edit-plauton-desc').value = p.descricao || '';
+      document.getElementById('edit-plauton-tipo').value = p.tipo_destinatario || 'tecnico';
+      const resp = document.getElementById('modal-editar-plauton-resp');
+      resp.className = 'api-response'; resp.textContent = '';
+      openModal('modal-editar-plano-auton');
+    }
+
+    async function guardarPlanoAuton() {
+      const id = document.getElementById('edit-plauton-id').value;
+      const body = {
+        descricao:         document.getElementById('edit-plauton-desc').value,
+        tipo_destinatario: document.getElementById('edit-plauton-tipo').value,
+      };
+      const r = await apiCall('PATCH', `/planos-acao/${id}`, body);
+      showResponse('modal-editar-plauton-resp', r);
+      if (r.ok) { setTimeout(() => closeModal('modal-editar-plano-auton'), 1200); loadPlanosAuton(); }
     }
 
     async function apagarPlanoAuton(id) {
@@ -991,18 +1030,6 @@
           <td>${actions(`editRelatorio(${rel.idrelatorio})`, `apagarRelatorio(${rel.idrelatorio})`)}</td>
         </tr>
       `).join('');
-    }
-
-    async function criarRelatorio() {
-      const idalerta = parseInt(document.getElementById('m-rel-alerta').value);
-      const body = {
-        descricao:    document.getElementById('m-rel-desc').value,
-        idutilizador: parseInt(document.getElementById('m-rel-utilizador').value),
-        idalerta:     idalerta || undefined,
-      };
-      const r = await apiCall('POST', '/relatorios', body);
-      showResponse('modal-rel-resp', r);
-      if (r.ok) { setTimeout(() => closeModal('modal-novo-relatorio'), 1200); loadRelatorios(); }
     }
 
     async function editRelatorio(id) {
@@ -1148,7 +1175,6 @@
       // ALERTAS
       { method: 'GET',    path: '/alertas',              desc: 'Listar alertas (?estado=ativo&nivel=2)',    body: null },
       { method: 'GET',    path: '/alertas/{id}',         desc: 'Alerta por ID',                            body: null },
-      { method: 'POST',   path: '/alertas',              desc: 'Criar alerta manualmente',                  body: { idnivel_alerta: 2, idarea_risco: 1, descricao: 'Nível elevado' } },
       { method: 'PATCH',  path: '/alertas/{id}',         desc: 'Atualizar alerta',                         body: { estado: 'resolvido' } },
       { method: 'DELETE', path: '/alertas/{id}',         desc: 'Apagar alerta',                            body: null },
       // ÁREAS DE RISCO
@@ -1200,10 +1226,10 @@
       { method: 'POST',   path: '/planos-alerta',                          desc: 'Criar associação nível de alerta ↔ plano de ação',                body: { idnivel_alerta: 2, idplano_acao: 1 } },
       { method: 'DELETE', path: '/planos-alerta/{idplano}/{idnivel}',      desc: 'Remover associação nível↔plano',                                  body: null },
       // RELATÓRIOS
-      { method: 'GET',    path: '/relatorios',           desc: 'Listar relatórios (?idalerta=&idutilizador=)', body: null },
-      { method: 'GET',    path: '/relatorios/{id}',      desc: 'Relatório por ID',                            body: null },
-      { method: 'POST',   path: '/relatorios',           desc: 'Criar relatório',                             body: { descricao: 'Análise de ocorrência', idalerta: 1 } },
-      { method: 'DELETE', path: '/relatorios/{id}',      desc: 'Apagar relatório',                            body: null },
+      { method: 'GET',    path: '/relatorios',           desc: 'Listar relatórios (?idalerta=&idutilizador=) — criados automaticamente pelo sistema', body: null },
+      { method: 'GET',    path: '/relatorios/{id}',      desc: 'Relatório por ID',                                                                    body: null },
+      { method: 'PATCH',  path: '/relatorios/{id}',      desc: 'Atualizar descrição do relatório',                                                    body: { descricao: 'Nova descrição' } },
+      { method: 'DELETE', path: '/relatorios/{id}',      desc: 'Apagar relatório',                                                                    body: null },
     ];
 
     function renderEndpoints() {
