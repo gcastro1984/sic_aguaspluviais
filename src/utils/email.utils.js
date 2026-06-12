@@ -40,7 +40,7 @@ const transporter = nodemailer.createTransport({
 export async function enviarEmailAlerta({ email, nome, idalerta, nivel, mensagem, score_risco }) {
     const info = NIVEL_INFO[nivel] || { nome: `Nível ${nivel}`, emoji: '⚠️' };
 
-    // HTML template do email (recomendado no PDF: usar HTML em vez de texto simples)
+    // HTML template do email (recomendado: usar HTML em vez de texto simples)
     const htmlBody = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
       <div style="background:#1F3864;padding:20px 24px">

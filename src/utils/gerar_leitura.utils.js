@@ -23,14 +23,18 @@ function limparLeitura(leitura) {
   return resto;
 }
 
-// verificar se o sensor está online na BD antes de enviar
-async function sensorOnline(idsensor) {
-  const response = await fetch(`http://localhost:3001/sensores/${idsensor}`, {
+// Obter, numa única chamada, o conjunto de IDs de sensores online.
+// Usa o endpoint de listagem (GET /sensores) que é público — o GET /sensores/:id
+// exige token (verifyToken) e devolvia 401, fazendo com que tudo fosse ignorado.
+async function obterSensoresOnline() {
+  const response = await fetch('http://localhost:3001/sensores?status=online&limit=100', {
     headers: { 'Content-Type': 'application/json' }
   });
-  if (!response.ok) return false;
+  if (!response.ok) {
+    throw new Error(`Falha ao obter sensores online: HTTP ${response.status}`);
+  }
   const json = await response.json();
-  return json.status === 'online';
+  return new Set(json.data.map(s => s.idsensor));  // Remove duplicados automaticamente
 }
 
 
@@ -63,18 +67,14 @@ function esperar(ms) {
 
 // execução
 async function main() {
-  // cache de sensores verificados para não repetir chamadas
-  const cacheOnline = {};
+  // conjunto de IDs online obtido numa única chamada à API
+  const sensoresOnline = await obterSensoresOnline();
   let enviadas = 0, ignoradas = 0, erros = 0;
 
   for (const leitura of leituras) {
     const { idsensor } = leitura;
 
-    if (cacheOnline[idsensor] === undefined) {
-      cacheOnline[idsensor] = await sensorOnline(idsensor);
-    }
-
-    if (!cacheOnline[idsensor]) {
+    if (!sensoresOnline.has(idsensor)) {
       ignoradas++;
       continue; // ignorar sensores offline/inexistentes
     }
